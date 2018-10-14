@@ -19,9 +19,10 @@ rosidl_generate_interfaces(flock2
 )
 
 install(FILES
+  src/detect_aruco.py
   src/flock_base.py
   src/flock_driver.py
-  src/detect_aruco.py
+  src/latching.py
   src/simple.py
   src/tf2_test.py
   src/usb_camera.py
