@@ -183,9 +183,9 @@ class FlockDriver(Node):
         self.get_logger().info('starting video pipeline')
         frame_num = 0
         for frame in container.decode(video=0):
-            # Publish at 5Hz to reduce CPU load
+            # Publish at 1Hz to reduce CPU load
             frame_num += 1
-            if frame_num == 5:
+            if frame_num == (30-1):
                 frame_num = 0
 
                 # Convert PyAV frame => PIL image => OpenCV Mat

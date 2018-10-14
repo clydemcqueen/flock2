@@ -17,6 +17,8 @@ import transformations
 # Tst === T_source_target
 # vector_target = T_source_target * vector_source
 
+# From transformations.py: "Quaternions w+ix+jy+kz are represented as [w, x, y, z]."
+
 
 def rvec_and_tvec_to_matrix(rvec, tvec):
     """Rodrigues rotation and translation vector to 4x4 matrix"""
@@ -27,38 +29,18 @@ def rvec_and_tvec_to_matrix(rvec, tvec):
     return numpy.dot(t_matrix, r_matrix)
 
 
-def tf_to_matrix(ros_transform):
-    """ROS transform to 4x4 matrix"""
-    t, q = ros_transform
-    t_matrix = transformations.translation_matrix(t)
-    r_matrix = transformations.quaternion_matrix(q)
-    return numpy.dot(t_matrix, r_matrix)
-
-
-def matrix_to_tf(T):
-    """4x4 matrix to ROS transform"""
-    t = transformations.translation_from_matrix(T)
-    q = transformations.quaternion_from_matrix(T)
-    return t, q
-
-
 def pose_to_matrix(p):
     """geometry_msgs.msg.Pose to 4x4 matrix"""
     t_matrix = transformations.translation_matrix([p.position.x, p.position.y, p.position.z])
-    r_matrix = transformations.quaternion_matrix([p.orientation.x, p.orientation.y, p.orientation.z, p.orientation.w])
+    r_matrix = transformations.quaternion_matrix([p.orientation.w, p.orientation.x, p.orientation.y, p.orientation.z])
     return numpy.dot(t_matrix, r_matrix)
 
 
-def matrix_to_pose(matrix):
+def matrix_to_pose(m):
     """4x4 matrix to geometry_msgs.msg.Pose"""
-    t, q = matrix_to_tf(matrix)
-    return Pose(position=Point(x=t[0], y=t[1], z=t[2]), orientation=Quaternion(x=q[0], y=q[1], z=q[2], w=q[3]))
-
-
-def tf_to_pose(ros_transform):
-    """ROS transform to geometry_msgs.msg.Pose"""
-    t, q = ros_transform
-    return Pose(position=Point(x=t[0], y=t[1], z=t[2]), orientation=Quaternion(x=q[0], y=q[1], z=q[2], w=q[3]))
+    t = transformations.translation_from_matrix(m)
+    q = transformations.quaternion_from_matrix(m)   # Order is [w, x, y, z]
+    return Pose(position=Point(x=t[0], y=t[1], z=t[2]), orientation=Quaternion(x=q[1], y=q[2], z=q[3], w=q[0]))
 
 
 class DetectArUco(Node):
@@ -95,11 +77,15 @@ class DetectArUco(Node):
         self._first_marker_id = -1
 
         # First marker pose
-        self._first_marker_pose = tf_to_pose(([0., 0., 1.], [0.5, -0.5, -0.5, 0.5]))
+        self._first_marker_pose = Pose(
+            position=Point(x=0., y=0., z=1.),
+            orientation=Quaternion(x=0.5, y=-0.5, z=-0.5, w=0.5))
         self._Tom = transformations.inverse_matrix(pose_to_matrix(self._first_marker_pose))
 
         # Tcb transform
-        self._Tcb = tf_to_matrix(([0.035, 0., 0.], [-0.5, -0.5, 0.5, 0.5]))
+        self._Tcb = pose_to_matrix(Pose(
+            position=Point(x=0.035, y=0., z=0.),
+            orientation=Quaternion(x=-0.5, y=0.5, z=-0.5, w=0.5)))
 
         # Publications
         self._tf_pub = self.create_publisher(TFMessage, '/tf')
@@ -112,18 +98,7 @@ class DetectArUco(Node):
         # ROS OpenCV bridge
         self._cv_bridge = CvBridge()
 
-    def publish_tf(self, t, q, stamp, child, parent):
-        geometry_msg = TransformStamped()
-        geometry_msg.header.frame_id = parent
-        geometry_msg.header.stamp = stamp
-        geometry_msg.child_frame_id = child
-        geometry_msg.transform.rotation = Quaternion(x=q[0], y=q[1], z=q[2], w=q[3])
-        geometry_msg.transform.translation = Vector3(x=t[0], y=t[1], z=t[2])
-        tf2_msg = TFMessage()
-        tf2_msg.transforms.append(geometry_msg)
-        self._tf_pub.publish(tf2_msg)
-
-    def publish_tf_pose(self, p, stamp, child, parent):
+    def publish_tf(self, p, stamp, child, parent):
         t = Vector3(x=p.position.x, y=p.position.y, z=p.position.z)
         geometry_msg = TransformStamped()
         geometry_msg.header.frame_id = parent
@@ -187,8 +162,7 @@ class DetectArUco(Node):
                 # We can't flip source and target because we want odom to be the parent of base_link
                 # Instead, invert Tob to get Tbo
                 Tbo = transformations.inverse_matrix(Tob)
-                t, q = matrix_to_tf(Tbo)
-                self.publish_tf(t, q, stamp, child='base_link', parent='odom')
+                self.publish_tf(matrix_to_pose(Tbo), stamp, child='base_link', parent='odom')
                 break
 
         # Compute the pose of the other markers, and publish a MarkerArray message for display in rviz
@@ -212,7 +186,7 @@ class DetectArUco(Node):
             marker.color = ColorRGBA(r=1., g=1., b=0., a=1.)
             marker_array.markers.append(marker)
 
-            self.publish_tf_pose(marker.pose, stamp, child='marker' + str(marker.id), parent='odom')
+            self.publish_tf(marker.pose, stamp, child='marker' + str(marker.id), parent='odom')
 
         self._rviz_markers_pub.publish(marker_array)
 
