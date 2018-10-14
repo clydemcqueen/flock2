@@ -81,6 +81,7 @@ def main(args=None):
         node.get_logger().info("Ctrl-C detected, shutting down")
         node.stop()
     finally:
+        node.destroy_node()
         rclpy.shutdown()
 
 

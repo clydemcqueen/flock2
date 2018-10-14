@@ -44,6 +44,8 @@ def main(args=None):
         log.info('publishing tf %d' % x)
         node.publish_tf(x / 100.)
         rclpy.spin_once(node, timeout_sec=1)
+
+    node.destroy_node()
     rclpy.shutdown()
 
 
