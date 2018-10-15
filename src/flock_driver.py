@@ -75,6 +75,7 @@ class FlockDriver(Node):
         # Battery state
         flight_data.battery_percent = data.battery_percentage
         flight_data.estimated_flight_time_remaining = data.drone_fly_time_left / 10.
+        flight_data.low_battery = bool(data.battery_low)
 
         # Flight mode
         flight_data.flight_mode = data.fly_mode
@@ -104,8 +105,6 @@ class FlockDriver(Node):
 
         # Debugging: is there data here? Print nonzero values
         log = self.get_logger()
-        if data.battery_low:
-            log.info('battery_low is nonzero: %d' % data.battery_low)
         if data.battery_lower:
             log.info('battery_lower is nonzero: %d' % data.battery_lower)
         if data.battery_state:
