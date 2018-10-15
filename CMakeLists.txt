@@ -22,7 +22,8 @@ install(FILES
   src/detect_aruco.py
   src/flock_base.py
   src/flock_driver.py
-  src/latching.py
+  src/latch_pub.py
+  src/latch_sub.py
   src/simple.py
   src/tf2_test.py
   src/usb_camera.py
