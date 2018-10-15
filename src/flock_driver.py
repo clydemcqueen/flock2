@@ -5,17 +5,22 @@ import time
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSHistoryPolicy, QoSReliabilityPolicy
 from builtin_interfaces.msg import Time
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Transform, TransformStamped, Twist, Vector3
 from sensor_msgs.msg import Image
-from std_msgs.msg import Empty
+from std_msgs.msg import ColorRGBA, Empty
+from tf2_msgs.msg import TFMessage
 from flock2.msg import Flip, FlightData
+from visualization_msgs.msg import Marker, MarkerArray
 from cv_bridge import CvBridge
 
 import av
 import cv2
 import numpy
 import tellopy
+
+import detect_aruco
 
 
 def now():
@@ -30,9 +35,38 @@ class FlockDriver(Node):
     def __init__(self):
         super().__init__('flock_driver')
 
+        # Clyde's Tello camera
+        camera_matrix = numpy.array(
+            [[921.170702, 0.000000, 459.904354],
+             [0.000000, 919.018377, 351.238301],
+             [0.000000, 0.000000, 1.000000]])
+        distortion = numpy.array([-0.033458, 0.105152, 0.001256, -0.006647, 0.000000])
+
+        # ArUco detector
+        self._detector = detect_aruco.DetectArUco(camera_matrix, distortion)
+
+        # Send some data "best effort"
+        # Set "unreliable" in rviz2
+        # Sadly these messages don't show up in `ros2 topic echo`
+        sensor_qos = QoSProfile(
+            depth=1,
+            history=QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
+            durability=QoSDurabilityPolicy.RMW_QOS_POLICY_DURABILITY_VOLATILE,
+            reliability=QoSReliabilityPolicy.RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT)
+
         # ROS publishers
         self._flight_data_pub = self.create_publisher(FlightData, 'flight_data')
-        self._image_pub = self.create_publisher(Image, 'image_raw')
+        self._tf_pub = self.create_publisher(TFMessage, '/tf')
+        self._rviz_markers_pub = self.create_publisher(MarkerArray, 'rviz_markers', qos_profile=sensor_qos)
+
+        # Optionally publish images
+        self._publish_images = False
+        if self._publish_images:
+            self._image_pub = self.create_publisher(Image, 'image_marked', qos_profile=sensor_qos)
+            self._cv_bridge = CvBridge()
+        else:
+            self._image_pub = None
+            self._cv_bridge = None
 
         # ROS subscriptions
         self.create_subscription(Twist, 'cmd_vel', self.cmd_vel_callback)
@@ -40,14 +74,22 @@ class FlockDriver(Node):
         self.create_subscription(Empty, 'land', self.land_callback)
         self.create_subscription(Flip, 'flip', self.flip_callback)
 
-        # ROS OpenCV wrapper
-        self._cv_bridge = CvBridge()
-
         self._drone = None
         self._video_thread = None
         self._stop_request = None
 
         self.get_logger().info('init complete')
+
+    def publish_tf(self, pose, stamp, child_frame):
+        v = Vector3(x=pose.position.x, y=pose.position.y, z=pose.position.z)
+        geometry_msg = TransformStamped()
+        geometry_msg.header.frame_id = 'odom'
+        geometry_msg.header.stamp = stamp
+        geometry_msg.child_frame_id = child_frame
+        geometry_msg.transform = Transform(translation=v, rotation=pose.orientation)
+        tf2_msg = TFMessage()
+        tf2_msg.transforms.append(geometry_msg)
+        self._tf_pub.publish(tf2_msg)
 
     def connect(self):
         self.get_logger().info('trying to connect...')
@@ -180,20 +222,40 @@ class FlockDriver(Node):
 
         # Decode h264
         self.get_logger().info('starting video pipeline')
-        frame_num = 0
         for frame in container.decode(video=0):
-            # Publish at 1Hz to reduce CPU load
-            frame_num += 1
-            if frame_num == (30-1):
-                frame_num = 0
+            stamp = now()
 
-                # Convert PyAV frame => PIL image => OpenCV Mat
-                color_mat = cv2.cvtColor(numpy.array(frame.to_image()), cv2.COLOR_RGB2BGR)
+            # Convert PyAV frame => PIL image => OpenCV Mat
+            color_mat = cv2.cvtColor(numpy.array(frame.to_image()), cv2.COLOR_RGB2BGR)
 
-                # Convert OpenCV Mat => ROS Image message and publish
+            # Detect markers
+            color_mat, drone_pose, marker_poses = self._detector.detect(self.get_logger(), color_mat)
+
+            # Optionally publish images
+            if self._publish_images:
                 image_msg = self._cv_bridge.cv2_to_imgmsg(color_mat, 'bgr8')
-                image_msg.header.stamp = now()
+                image_msg.header.stamp = stamp
                 self._image_pub.publish(image_msg)
+            else:
+                cv2.imshow('usb_camera', color_mat)
+                cv2.waitKey(1)
+
+            # Publish transforms and rviz markers
+            if drone_pose is not None and marker_poses is not None:
+                self.publish_tf(drone_pose, stamp, child_frame='base_link')
+                marker_array = MarkerArray()
+                for marker_id, marker_pose in marker_poses.items():
+                    marker = Marker()
+                    marker.id = marker_id
+                    marker.header.frame_id = 'odom'
+                    marker.pose = marker_pose
+                    marker.type = Marker.CUBE
+                    marker.action = Marker.ADD  # TODO DELETE markers that aren't visible
+                    marker.scale = Vector3(x=0.1, y=0.1, z=0.01)
+                    marker.color = ColorRGBA(r=1., g=1., b=0., a=1.)
+                    marker_array.markers.append(marker)
+                    self.publish_tf(marker_pose, stamp, 'marker%d' % marker_id)
+                self._rviz_markers_pub.publish(marker_array)
 
             # Check for normal shutdown
             if self._stop_request.isSet():

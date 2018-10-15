@@ -7,5 +7,4 @@ from launch_ros.actions import Node
 def generate_launch_description():
     return LaunchDescription([
         Node(package='flock2', node_executable='usb_camera.py', output='screen'),
-        Node(package='flock2', node_executable='detect_aruco.py', output='screen'),
     ])
