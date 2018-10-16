@@ -14,5 +14,4 @@ def generate_launch_description():
         Node(package='joy', node_executable='joy_node', output='screen'),
         Node(package='flock2', node_executable='flock_driver.py', output='screen'),
         Node(package='flock2', node_executable='flock_base.py', output='screen'),
-        Node(package='flock2', node_executable='detect_aruco.py', output='screen'),
     ])
