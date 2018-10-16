@@ -1,13 +1,11 @@
 #!/usr/bin/env python
 
 import threading
-import time
 
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSHistoryPolicy, QoSReliabilityPolicy
-from builtin_interfaces.msg import Time
-from geometry_msgs.msg import Transform, TransformStamped, Twist, Vector3
+from geometry_msgs.msg import Twist, Vector3
 from sensor_msgs.msg import Image
 from std_msgs.msg import ColorRGBA, Empty
 from tf2_msgs.msg import TFMessage
@@ -20,14 +18,8 @@ import cv2
 import numpy
 import tellopy
 
+import util
 import detect_aruco
-
-
-def now():
-    cpu_time = time.time()
-    sec = int(cpu_time)
-    nanosec = int((cpu_time - sec) * 1000000)
-    return Time(sec=sec, nanosec=nanosec)
 
 
 class FlockDriver(Node):
@@ -79,17 +71,6 @@ class FlockDriver(Node):
         self._stop_request = None
 
         self.get_logger().info('init complete')
-
-    def publish_tf(self, pose, stamp, child_frame):
-        v = Vector3(x=pose.position.x, y=pose.position.y, z=pose.position.z)
-        geometry_msg = TransformStamped()
-        geometry_msg.header.frame_id = 'odom'
-        geometry_msg.header.stamp = stamp
-        geometry_msg.child_frame_id = child_frame
-        geometry_msg.transform = Transform(translation=v, rotation=pose.orientation)
-        tf2_msg = TFMessage()
-        tf2_msg.transforms.append(geometry_msg)
-        self._tf_pub.publish(tf2_msg)
 
     def connect(self):
         self.get_logger().info('trying to connect...')
@@ -223,7 +204,7 @@ class FlockDriver(Node):
         # Decode h264
         self.get_logger().info('starting video pipeline')
         for frame in container.decode(video=0):
-            stamp = now()
+            stamp = util.now()
 
             # Convert PyAV frame => PIL image => OpenCV Mat
             color_mat = cv2.cvtColor(numpy.array(frame.to_image()), cv2.COLOR_RGB2BGR)
@@ -242,7 +223,8 @@ class FlockDriver(Node):
 
             # Publish transforms and rviz markers
             if drone_pose is not None and marker_poses is not None:
-                self.publish_tf(drone_pose, stamp, child_frame='base_link')
+                tf2 = TFMessage()
+                tf2.transforms.append(util.pose_to_transform(drone_pose, stamp, 'odom', 'base_link'))
                 marker_array = MarkerArray()
                 for marker_id, marker_pose in marker_poses.items():
                     marker = Marker()
@@ -254,7 +236,8 @@ class FlockDriver(Node):
                     marker.scale = Vector3(x=0.1, y=0.1, z=0.01)
                     marker.color = ColorRGBA(r=1., g=1., b=0., a=1.)
                     marker_array.markers.append(marker)
-                    self.publish_tf(marker_pose, stamp, 'marker%d' % marker_id)
+                    tf2.transforms.append(util.pose_to_transform(marker_pose, stamp, 'odom', 'marker%d' % marker_id))
+                self._tf_pub.publish(tf2)
                 self._rviz_markers_pub.publish(marker_array)
 
             # Check for normal shutdown
