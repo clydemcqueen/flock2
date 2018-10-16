@@ -1,14 +1,24 @@
 #!/usr/bin/env python
 
+import time
+
+import numpy as np
+import transformations as xf
+
 import rclpy
 from rclpy.node import Node
 from builtin_interfaces.msg import Time
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, TransformStamped
 from tf2_msgs.msg import TFMessage
 from sensor_msgs.msg import Image
 from std_msgs.msg import Empty
 
-import numpy as np
+
+def now():
+    cpu_time = time.time()
+    sec = int(cpu_time)
+    nanosec = int((cpu_time - sec) * 1000000)
+    return Time(sec=sec, nanosec=nanosec)
 
 
 class TrajectoryHandler(object):
@@ -113,47 +123,12 @@ class VelocityController(object):
         return yawdot_cmd
 
 
-class Event(list):
-    """Event subscription.
-
-    A list of callable objects. Calling an instance of this will cause a
-    call to each item in the list in ascending order by index.
-
-    Example Usage:
-    >>> def f(x):
-    ...     print 'f(%s)' % x
-    >>> def g(x):
-    ...     print 'g(%s)' % x
-    >>> e = Event()
-    >>> e()
-    >>> e.append(f)
-    >>> e(123)
-    f(123)
-    >>> e.remove(f)
-    >>> e()
-    >>> e += (f, g)
-    >>> e(10)
-    f(10)
-    g(10)
-    >>> del e[0]
-    >>> e(2)
-    g(2)
-
-    """
-    def __call__(self, *args, **kwargs):
-        for f in self:
-            f(*args, **kwargs)
-
-    def __repr__(self):
-        return "Event(%s)" % list.__repr__(self)
-
-
 class TrajectoryVelocityFlyer:
 
     def __init__(self):
         self.controller = VelocityController()
         self.trajectory = TrajectoryHandler()
-        self.
+        self.cmd_callback = None
 
         # self._target_position = np.array([0.0, 0.0, 0.0])  # the target pos in [N, E, D]
         # self._target_velocity = np.array([0.0, 0.0, 0.0])  # the target vel in [Vn, Ve, Vd]
@@ -185,6 +160,9 @@ class TrajectoryVelocityFlyer:
 
     def cmd_subscription(self, cmd_callback):
         self.cmd_callback = cmd_callback
+
+    def set_state(self, time, state):
+        print(state)
 
     # def local_position_callback(self):
     #     if self._flight_state == States.TAKEOFF:
@@ -333,11 +311,18 @@ class FlockSimplePath(Node):
         pass
 
     def ros_tf_callback(self, msg):
-        twist = Twist()
-        print(msg)
+        for transform in msg.transforms:  # type: TransformStamped
+            if transform.header.frame_id == 'odom' and transform.child_frame_id == 'base_link':
+                xlat = transform.transform.translation
+                quat = transform.transform.rotation
+                _, _, yaw = xf.euler_from_quaternion([quat.w, quat.x, quat.y, quat.z])
+                state = np.array([xlat.x, xlat.y, xlat.z, yaw])
+                self.flyer.set_state(now(), state)
 
     def flyer_cmd_callback(self, cmd):
+        twist = Twist()
         print(cmd)
+
 
 def get_trajectory(name):
     if name == 'lineX':
