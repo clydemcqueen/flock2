@@ -10,8 +10,6 @@ from rclpy.node import Node
 from builtin_interfaces.msg import Time
 from geometry_msgs.msg import Twist, TransformStamped
 from tf2_msgs.msg import TFMessage
-from sensor_msgs.msg import Image
-from std_msgs.msg import Empty
 
 
 def now():
@@ -130,25 +128,6 @@ class TrajectoryVelocityFlyer:
         self.trajectory = TrajectoryHandler()
         self.cmd_callback = None
 
-        # self._target_position = np.array([0.0, 0.0, 0.0])  # the target pos in [N, E, D]
-        # self._target_velocity = np.array([0.0, 0.0, 0.0])  # the target vel in [Vn, Ve, Vd]
-        # self._in_mission = True
-        #
-        # # initial state
-        # self._flight_state = States.MANUAL
-        #
-        # # register all your callbacks here
-        # self.register_callback(MsgID.LOCAL_POSITION, self.local_position_callback)
-        # self.register_callback(MsgID.LOCAL_VELOCITY, self.velocity_callback)
-        # self.register_callback(MsgID.STATE, self.state_callback)
-        #
-        # # get the controller that will be used
-        # self._outer_controller = OuterLoopController()
-        #
-        # # get the trajectory handler
-        # self._traj_handler = TrajectoryHandler("line_traj.txt")
-        # self._start_time = 0.0  # this is the time that the flight started -> will be set on takeoff
-
     def start(self):
         pass
 
@@ -163,130 +142,6 @@ class TrajectoryVelocityFlyer:
 
     def set_state(self, time, state):
         print(state)
-
-    # def local_position_callback(self):
-    #     if self._flight_state == States.TAKEOFF:
-    #         if -1.0 * self.local_position[2] > 0.95 * self._target_position[2]:
-    #             self._start_time = time.time()
-    #             self.waypoint_transition()
-    #
-    #         # TODO: decide if want to also run the position controller from here
-    #         # TODO: if desired, could simply call the takeoff method, but would be more complete to also write it here
-    #
-    #         # NOTE: one option for testing out the controller that people could do is use the takeoff method
-    #         # and then simply send the thrust command for hover, this help tune the mass of the drone - if a scale isn't accessible
-    #         # NOTE: this would be an effort to just try and tie in the content from the C++ project
-    #
-    #         # TODO: the same dilema is of note for landing
-    #         # could just open it up as a "hey if you want to see what your controller does for your entire flight"
-    #
-    #     elif self._flight_state == States.WAYPOINT:
-    #
-    #         # get the current in flight time
-    #         rel_time = time.time() - self._start_time
-    #
-    #         # check if trajectory is completed
-    #         if self._traj_handler.is_trajectory_completed(rel_time):
-    #             self.landing_transition()
-    #             return
-    #
-    #         # set the target position and velocity from the trajectory
-    #         self._target_position, self._target_velocity = self._traj_handler.get_next_point(rel_time)
-    #
-    #         # run the outer loop controller (position controller -> to velocity command)
-    #         vel_cmd = self.run_outer_controller()
-    #
-    #         # send the velocity command to the drone
-    #         self.cmd_velocity(vel_cmd[0], vel_cmd[1], vel_cmd[2], 0.0)
-
-    # def velocity_callback(self):
-    #     if self._flight_state == States.LANDING:
-    #         if abs(self.local_velocity[2]) < 0.05:
-    #             self.disarming_transition()
-
-    # def state_callback(self):
-    #     if self._in_mission:
-    #         if self._flight_state == States.MANUAL:
-    #             self.arming_transition()
-    #         elif self._flight_state == States.ARMING:
-    #             if self.armed:
-    #                 self.takeoff_transition()
-    #         elif self._flight_state == States.DISARMING:
-    #             if ~self.armed & ~self.guided:
-    #                 self.manual_transition()
-
-    def run_outer_controller(self):
-        """helper function to run the outer loop controller.
-
-        calls the outer loop controller to run the lateral position and altitude controllers to
-        get the velocity vector to command.
-
-        Returns:
-            the velocity vector to command as [vn, ve, vd] in [m/s]
-            numpy array of floats
-        """
-
-        lateral_vel_cmd = self.controller.lateral_position_control(self._target_position,
-                                                                          self.local_position,
-                                                                          self._target_velocity)
-        hdot_cmd = self.controller.altitude_control(-self._target_position[2],
-                                                           -self.local_position[2],
-                                                           -self._target_velocity[2])
-
-        return np.array([lateral_vel_cmd[0], lateral_vel_cmd[1], -hdot_cmd])
-
-    # def arming_transition(self):
-    #     print("arming transition")
-    #     self.take_control()
-    #     self.arm()
-    #     self.set_home_as_current_position()
-    #     self._flight_state = States.ARMING
-    #
-    # def takeoff_transition(self):
-    #     print("takeoff transition")
-    #     target_altitude = TAKEOFF_ALTITUDE
-    #     self._target_position[2] = target_altitude
-    #
-    #     # NOTE: the configuration let's the crazyflie handle the takeoff
-    #     self.takeoff(target_altitude)
-    #     self._flight_state = States.TAKEOFF
-    #
-    # def waypoint_transition(self):
-    #     print("waypoint transition")
-    #     self._flight_state = States.WAYPOINT
-    #
-    # def landing_transition(self):
-    #     print("landing transition")
-    #     # NOTE: the configuration let's the crazyflie handle the takeoff
-    #     self.land()
-    #     self._flight_state = States.LANDING
-    #
-    # def disarming_transition(self):
-    #     print("disarm transition")
-    #     self.disarm()
-    #     self.release_control()
-    #     self._flight_state = States.DISARMING
-    #
-    # def manual_transition(self):
-    #     print("manual transition")
-    #     self.stop()
-    #     self._in_mission = False
-    #     self._flight_state = States.MANUAL
-    #
-    # def start(self):
-    #     self.start_log("Logs", "NavLog.txt")
-    #     # self.connect()
-    #
-    #     print("starting connection")
-    #     # self.connection.start()
-    #
-    #     super().start()
-    #
-    #     # Only required if they do threaded
-    #     # while self._in_mission:
-    #     #    pass
-    #
-    #     self.stop_log()
 
 
 class FlockSimplePath(Node):
