@@ -27,6 +27,7 @@ install(FILES
   src/simple.py
   src/tf2_test.py
   src/usb_camera.py
+  src/util.py
   DESTINATION lib/flock2
 )
 
