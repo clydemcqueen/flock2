@@ -4,7 +4,8 @@
 # Battery state:
 int32 battery_percent                     # Remaining battery, 0-100
 float32 estimated_flight_time_remaining   # Remaining flight time, seconds
-bool low_battery                          # Battery is low
+bool battery_low                          # Battery is low
+bool battery_lower                        # Battery is really low (the red light is flashing)
 
 # Flight modes:
 uint8 FLIGHT_MODE_GROUND=1          # Motors off
