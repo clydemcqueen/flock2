@@ -13,6 +13,8 @@ from geometry_msgs.msg import Twist, TransformStamped
 from std_msgs.msg import Empty
 from tf2_msgs.msg import TFMessage
 
+import smooth_path_4poly_2min
+
 
 def now():
     cpu_time = time.time()
@@ -33,7 +35,13 @@ class TrajectoryHandler(object):
         self._rel_times = np.array([])  # list of the relative times for the trajectory in decimal seconds
         self._positions = np.array([])  # list of the positions for the trajectory in
 
-    def set_trajectory(self, data):
+        self._use_waypoints = False
+        self._path_3d = None
+
+        self._repeat = False
+        self._stabilize_sec = 0.
+
+    def set_waypoints(self, data, repeat, stabilize_sec):
         # - each row contains a trajectory point
         # - each row consists of the following 4 comma separated values:
         #    - relative time (seconds)
@@ -44,7 +52,30 @@ class TrajectoryHandler(object):
         self._rel_times = d[:, 0]
         self._positions = d[:, 1:4]
 
-    def get_next_point(self, inflight_time):
+        self._path_3d = smooth_path_4poly_2min.Path3d(self._rel_times, self._positions)
+
+        self._repeat = repeat
+        self._stabilize_sec = stabilize_sec
+
+    def is_trajectory_completed(self, inflight_time):
+        return (inflight_time + self._stabilize_sec > self._rel_times[-1]) if not self._repeat else False
+
+    def get_point(self, inflight_time):
+        # check time range
+        inflight_time -= self._stabilize_sec
+
+        if inflight_time <= 0:
+            return self._positions[0], np.zeros(3)
+
+        elif self._repeat:
+            _, inflight_time = divmod(inflight_time, self._rel_times[-1])
+
+        elif inflight_time >= self._rel_times[-1]:
+            return self._positions[-1], np.zeros(3)
+
+        return self._get_waypoint(inflight_time) if self._use_waypoints else self._get_smoothpoint(inflight_time)
+
+    def _get_waypoint(self, inflight_time):
         # get the index of the trajectory with the closest time
         ind_min = np.argmin(np.abs(self._rel_times - inflight_time))
 
@@ -88,8 +119,8 @@ class TrajectoryHandler(object):
 
         return position_target, velocity_target
 
-    def is_trajectory_completed(self, inflight_time):
-        return inflight_time > self._rel_times[-1]
+    def _get_smoothpoint(self, inflight_time):
+        return self._path_3d.calc_y_and_y_dot(inflight_time)
 
 
 class VelocityController(object):
@@ -99,22 +130,22 @@ class VelocityController(object):
         # define all the gains that will be needed
         self._kp_pos = 1.0  # gain for lateral position error
         self._kp_alt = 1.0  # gain for altitude error
-        self._kp_yaw = 2.0  # gain for yaw error
+        self._kp_yaw = 1.0  # gain for yaw error
 
         # some limits to use
         self._v_max = 0.4       # the maximum horizontal velocity
         self._hdot_max = 0.4    # the maximum vertical velocity
-        self._yawdot_max = 0.4  # the maximum yaw rate
+        self._yawdot_max = 0.8  # the maximum yaw rate
 
-    def lateral_position_control(self, pos_cmd, pos, vel_target=0.0):
+    def lateral_position_control(self, pos_cmd, pos, vel_target=np.array((0., 0.))):
         pos_error = pos_cmd - pos
         lateral_vel_cmd = self._kp_pos * pos_error + vel_target
         lateral_vel_cmd = np.clip(lateral_vel_cmd, -self._v_max, self._v_max)
         print(
-            ("pos:{0:7.3f},{1:7.3f}; pos_cmd:{2:7.3f},{3:7.3f}; vel_target:{4:7.3f},{5:7.3f}; " +
-                "pos_error:{6:7.3f},{7:7.3f}; lateral_vel_cmd:{8:7.3f},{9:7.3f}")
-            .format(pos[0], pos[1], pos_cmd[0], pos_cmd[1], vel_target[0], vel_target[1],
-                    pos_error[0], pos_error[1], lateral_vel_cmd[0], lateral_vel_cmd[1]))
+            ("pos_cmd:{0:7.3f},{1:7.3f}; pos:{2:7.3f},{3:7.3f}; pos_error:{4:7.3f},{5:7.3f}; " +
+                "vel_target:{6:7.3f},{7:7.3f}; lateral_vel_cmd:{8:7.3f},{9:7.3f}")
+            .format(pos_cmd[0], pos_cmd[1], pos[0], pos[1], pos_error[0], pos_error[1],
+                    vel_target[0], vel_target[1], lateral_vel_cmd[0], lateral_vel_cmd[1]))
         return lateral_vel_cmd
 
     def altitude_control(self, alt_cmd, alt, hdot_target=0.0):
@@ -125,11 +156,18 @@ class VelocityController(object):
 
     def yaw_control(self, yaw_cmd, yaw, yawdot_target=0.0):
         yaw_error = yaw_cmd - yaw
+        if yaw_error > np.pi:
+            yaw_error -= 2.0 * np.pi
+        elif yaw_error < -np.pi:
+            yaw_error += 2.0 * np.pi
+
         yawdot_cmd = self._kp_yaw * yaw_error + yawdot_target
         yawdot_cmd = np.clip(yawdot_cmd, -self._yawdot_max, self._yawdot_max)
         # print(
-        #     "yaw: {0:7.3f}, yaw_cmd: {1:7.3f},  yawdot_target: {2:7.3f}, yaw_error: {3:7.3f}, 'yawdot_cmd: {4:7.3f}"
-        #     .format(yaw, yaw_cmd, yawdot_target, yaw_error, yawdot_cmd))
+        #     ("yaw_cmd:{0:7.3f}; yaw:{1:7.3f}; yaw_error:{2:7.3f}; " +
+        #         "yawdot_target:{3:7.3f}; yawdot_cmd:{4:7.3f}")
+        #     .format(yaw_cmd, yaw, yaw_error,
+        #             yawdot_target, yawdot_cmd))
         return yawdot_cmd
 
 
@@ -175,8 +213,8 @@ class TrajectoryVelocityFlyer:
         if last_state != self.States.DONE:
             self._call_flyer_stoping_callback()
 
-    def set_trajectory(self, waypoints):
-        self._trajectory.set_trajectory(waypoints)
+    def set_waypoints(self, waypoints, repeat=False, stabilize_sec=0.0):
+        self._trajectory.set_waypoints(waypoints, repeat, stabilize_sec)
 
     def set_callback_node(self, callback_node):
         self._callback_node = callback_node
@@ -205,7 +243,7 @@ class TrajectoryVelocityFlyer:
 
         # Launching rises to the height of the first way point or a fixed amount of time
         if self._state == self.States.LAUNCHING:
-            pos_target, _ = self._trajectory.get_next_point(0.0)
+            pos_target, _ = self._trajectory.get_point(0.0)
             if drone_state[2] >= pos_target[2] or \
                     msg_time - self._start_msg_time > self._launch_limit_sec:
                 self._start_msg_time = msg_time
@@ -239,7 +277,7 @@ class TrajectoryVelocityFlyer:
         rel_time = msg_time - self._start_msg_time
 
         # get the target position and velocity from the trajectory (in world frame)
-        pos_target, vel_target = self._trajectory.get_next_point(rel_time)
+        pos_target, vel_target = self._trajectory.get_point(rel_time)
 
         # run the controller for position (position controller -> to velocity command)
         vel_cmd = np.zeros(4)
@@ -251,7 +289,7 @@ class TrajectoryVelocityFlyer:
         vel_target_half = 0.5 * vel_target
         yaw_dot_target = np.arctan2(-pos_target[1] + vel_target_half[1], -pos_target[0] + vel_target_half[0]) - \
             np.arctan2(-pos_target[1] - vel_target_half[1], -pos_target[0] - vel_target_half[0])
-        vel_cmd[3] = self._controller.yaw_control(yaw_target, drone_state[3], yaw_dot_target)
+        vel_cmd[3] = self._controller.yaw_control(yaw_target, drone_state[3], -yaw_dot_target)
 
         # The vel_cmd should be in the drone frame. Rotate the command velocities by the yaw.
         yaw = drone_state[3]
@@ -322,7 +360,7 @@ class FlockSimplePath(Node):
         self.create_subscription(TFMessage, '/tf', self._ros_tf_callback)
 
         # Timer
-        timer_period_sec = 0.5
+        timer_period_sec = 1.
         self.create_timer(timer_period_sec, self._ros_timer_callback)
 
         self.get_logger().info('init complete')
@@ -354,6 +392,8 @@ class FlockSimplePath(Node):
 
     def flyer_cmd_callback(self, vel_cmd):
         if self._state == self.States.RUNNING:
+            # The commands coming from the flyer are a rate. How these translate
+            # into drone commands is a mystery. For now pass the values on through.
             twist = Twist()
             twist.linear.x = vel_cmd[0]
             twist.linear.y = vel_cmd[1]
@@ -378,43 +418,78 @@ class FlockSimplePath(Node):
         self.get_logger().info(msg)
 
 
-def get_trajectory(name):
-    p = [
-        [0.0, 0.0, 0.0, 0.0]
-    ]
+class Figure:
+    def __init__(self, speed, origin, scale):
+        self._speed = speed
+        self._origin = np.array(origin)
+        self._scale = scale
 
-    if name == 'lineY':
-        p = [
-            [0.0, 0.0, 0.0, 0.0],
-            [5.0, 0.0, 0.0, 0.0],
-            [10.0, 0.0, 1.0, 0.0],
-            [15.0, 0.0, 1.0, 0.0],
-            [25.0, 0.0, -1.0, 0.0],
-            [30.0, 0.0, -1.0, 0.0],
-            [35.0, 0.0, 0.0, 0.0],
-            [40.0, 0.0, 0.0, 0.0],
-        ]
-    elif name == 'stationary10sec':
-        p = [
-            [0.0, 0.0, 0.0, 0.0],
-            [10.0, 0.0, 0.0, 0.0],
-        ]
+    def _abs_pos(self, rel_pos):
+        return rel_pos * self._scale + self._origin
 
-    # adjust the following factors for the flying space
-    scale = 1.0
-    origin = [-1.5, 0.0, 1.0]
+    @staticmethod
+    def _elem(t, abs_pos):
+        return [t, abs_pos[0], abs_pos[1], abs_pos[2]]
 
-    scaled_p = np.array(p)
-    scaled_p[:, 1:4] = scaled_p[:, 1:4] * scale + np.array(origin)
+    def _gen(self, func):
+        curr_t = 0.0
+        curr_pos = np.zeros(3)
+        last_abs_pos = self._abs_pos(curr_pos)
+        yield self._elem(0., last_abs_pos)
+        for e in func(self):
+            this_pos = curr_pos
+            for s, pos in e:
+                rel_pos = np.array(pos) + this_pos
+                abs_pos = self._abs_pos(rel_pos)
+                delta_t = -s if s <= 0.0 else np.linalg.norm(abs_pos - last_abs_pos) / s
+                curr_t = curr_t + delta_t
+                yield self._elem(curr_t, abs_pos)
+                curr_pos = rel_pos
+                last_abs_pos = abs_pos
 
-    return scaled_p
+    def generate(self, func):
+        return np.array([p for p in self._gen(func)])
+
+    @staticmethod
+    def pause(sec):
+        yield -sec, (0., 0., 0.)
+
+    def _line_by(self, p):
+        return self._speed, (p[0], p[1], p[2])
+
+    def line_by(self, p):
+        yield self._line_by(p)
+
+    def lines_by(self, ps):
+        for p in ps:
+            yield self._line_by(p)
+
+
+class WaypointGenerator:
+
+    @staticmethod
+    def line_y(figure: Figure):
+        yield figure.pause(4)
+        yield figure.line_by([0., 0.5, 0.])
+        yield figure.line_by([0., -1., 0.])
+        yield figure.line_by([0., 0.5, 0.])
+
+    @staticmethod
+    def stationary(figure: Figure):
+        yield figure.pause(20)
+
+    @staticmethod
+    def generate(style, speed=0.15, origin=(0., 0., 0.), scale=1.0):
+        assert style in WaypointGenerator.__dict__ and isinstance(WaypointGenerator.__dict__[style], staticmethod)
+        return Figure(speed, origin, scale).generate(WaypointGenerator.__dict__[style].__func__)
 
 
 def main(args=None):
     rclpy.init(args=args)
 
     flyer = TrajectoryVelocityFlyer()
-    flyer.set_trajectory(get_trajectory('lineY'))
+    wp = WaypointGenerator.generate('line_y', origin=[-1.3, 0.0, 1.2])
+    flyer.set_waypoints(wp, stabilize_sec=3.0, repeat=True)
 
     node = FlockSimplePath(flyer)
 
