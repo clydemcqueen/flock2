@@ -36,6 +36,7 @@ class FlockBase(Node):
 
         self._trim_speed = 0.25     # TODO parameter
         left_handed = False         # TODO parameter
+        self._joystick_disabled = 0
 
         # Joystick assignments
         self._joy_axis_throttle = _joy_axis_left_fb if left_handed else _joy_axis_right_fb
@@ -49,6 +50,7 @@ class FlockBase(Node):
         self._joy_button_flip_right = _joy_button_B
         self._joy_button_flip_back = _joy_button_A
         self._joy_button_left_bumper = _joy_button_left_bumper
+        self._joy_button_disable_joy = _joy_button_X
         self._joy_axis_trim_lr = _joy_axis_trim_lr
         self._joy_axis_trim_fb = _joy_axis_trim_fb
 
@@ -112,6 +114,40 @@ class FlockBase(Node):
         return True
 
     def joy_callback(self, msg):
+
+        # If joystick is disabled, then pressing the left bumper button will enable it
+        if self._joystick_disabled == 1:
+            if msg.buttons[self._joy_button_left_bumper] == 0:
+                self._joystick_disabled = 2
+            return
+        elif self._joystick_disabled == 2:
+            if msg.buttons[self._joy_button_left_bumper] == 0:
+                return
+            self._joystick_disabled = 0
+
+        # Left bumper button modifies the behaviour of the other buttons
+        # Left bumper button up
+        if msg.buttons[self._joy_button_left_bumper] == 0:
+            if msg.buttons[self._joy_button_takeoff] != 0:
+                self._takeoff_pub.publish(Empty())
+            elif msg.buttons[self._joy_button_land] != 0:
+                self._land_pub.publish(Empty())
+
+            if msg.buttons[self._joy_button_flip_forward] != 0:
+                self._flip_pub.publish(Flip(flip_command=Flip.FLIP_FORWARD))
+            elif msg.buttons[self._joy_button_flip_left] != 0:
+                self._flip_pub.publish(Flip(flip_command=Flip.FLIP_LEFT))
+            elif msg.buttons[self._joy_button_flip_right] != 0:
+                self._flip_pub.publish(Flip(flip_command=Flip.FLIP_RIGHT))
+            elif msg.buttons[self._joy_button_flip_back] != 0:
+                self._flip_pub.publish(Flip(flip_command=Flip.FLIP_BACK))
+
+        # Left bumper button pressed
+        else:
+            if msg.buttons[self._joy_button_disable_joy] != 0:
+                self._joystick_disabled = 1
+                return
+
         twist = Twist()
 
         trim_lr_pressed = self.joy_axis_trim_process(msg, self._joy_axis_trim_lr, self._trim_targets_lr, twist)
@@ -124,20 +160,6 @@ class FlockBase(Node):
             twist.angular.z = msg.axes[self._joy_axis_yaw]       # +yaw is ccw, -yaw is cw
 
         self._cmd_vel_pub.publish(twist)
-
-        if msg.buttons[self._joy_button_takeoff] != 0:
-            self._takeoff_pub.publish(Empty())
-        elif msg.buttons[self._joy_button_land] != 0:
-            self._land_pub.publish(Empty())
-
-        if msg.buttons[self._joy_button_flip_forward] != 0:
-            self._flip_pub.publish(Flip(flip_command=Flip.FLIP_FORWARD))
-        elif msg.buttons[self._joy_button_flip_left] != 0:
-            self._flip_pub.publish(Flip(flip_command=Flip.FLIP_LEFT))
-        elif msg.buttons[self._joy_button_flip_right] != 0:
-            self._flip_pub.publish(Flip(flip_command=Flip.FLIP_RIGHT))
-        elif msg.buttons[self._joy_button_flip_back] != 0:
-            self._flip_pub.publish(Flip(flip_command=Flip.FLIP_BACK))
 
 
 def main(args=None):
