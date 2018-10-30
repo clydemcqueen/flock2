@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from enum import Enum
+
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
@@ -31,6 +33,12 @@ _joy_button_right_stick = 10    # Right stick button
 
 class FlockBase(Node):
 
+    class Axis(Enum):
+        THROTTLE = 0
+        STRAFE = 1
+        VERTICAL = 2
+        YAW = 3
+
     def __init__(self):
         super().__init__('flock_base')
 
@@ -57,31 +65,31 @@ class FlockBase(Node):
         # Trim axis commands
         self._trim_targets_lr = \
             {
-                (-1, False): (3, -1.0),
-                (1, False): (3, 1.0),
-                (-1, True): (1, -1.0),
-                (1, True): (1, 1.0),
+                (-1, False): (self.Axis.YAW, -1.0),
+                (1, False): (self.Axis.YAW, 1.0),
+                (-1, True): (self.Axis.STRAFE, -1.0),
+                (1, True): (self.Axis.STRAFE, 1.0),
             } \
             if left_handed else \
             {
-                (-1, False): (1, -1.0),
-                (1, False): (1, 1.0),
-                (-1, True): (3, -1.0),
-                (1, True): (3, 1.0),
+                (-1, False): (self.Axis.STRAFE, -1.0),
+                (1, False): (self.Axis.STRAFE, 1.0),
+                (-1, True): (self.Axis.YAW, -1.0),
+                (1, True): (self.Axis.YAW, 1.0),
             }
         self._trim_targets_fb = \
             {
-                (-1, False): (0, -1.0),
-                (1, False): (0, 1.0),
-                (-1, True): (2, -1.0),
-                (1, True): (2, 1.0),
+                (-1, False): (self.Axis.THROTTLE, -1.0),
+                (1, False): (self.Axis.THROTTLE, 1.0),
+                (-1, True): (self.Axis.VERTICAL, -1.0),
+                (1, True): (self.Axis.VERTICAL, 1.0),
             } \
             if left_handed else \
             {
-                (-1, False): (0, -1.0),
-                (1, False): (0, 1.0),
-                (-1, True): (2, -1.0),
-                (1, True): (2, 1.0),
+                (-1, False): (self.Axis.THROTTLE, -1.0),
+                (1, False): (self.Axis.THROTTLE, 1.0),
+                (-1, True): (self.Axis.VERTICAL, -1.0),
+                (1, True): (self.Axis.VERTICAL, 1.0),
             }
 
         # Publications
@@ -103,11 +111,11 @@ class FlockBase(Node):
         twist_field, twist_sign = trim_targets[key]
         twist_value = twist_sign * self._trim_speed
         print(key, trim_targets[key])
-        if twist_field == 0:
+        if twist_field == self.Axis.THROTTLE:
             twist.linear.x = twist_value
-        elif twist_field == 1:
+        elif twist_field == self.Axis.STRAFE:
             twist.linear.y = twist_value
-        elif twist_field == 2:
+        elif twist_field == self.Axis.VERTICAL:
             twist.linear.z = twist_value
         else:
             twist.angular.z = twist_value
@@ -118,7 +126,7 @@ class FlockBase(Node):
         # If joystick is disabled, then pressing the left bumper button will enable it
         if self._joystick_disabled == 1:
             if msg.buttons[self._joy_button_left_bumper] == 0:
-                self._joystick_disabled = 2
+                self._joystick_disabled = 2  # Wait for button up
             return
         elif self._joystick_disabled == 2:
             if msg.buttons[self._joy_button_left_bumper] == 0:
