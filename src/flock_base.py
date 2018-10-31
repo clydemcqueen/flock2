@@ -33,18 +33,23 @@ _joy_button_right_stick = 10    # Right stick button
 
 class FlockBase(Node):
 
-    class Axis(Enum):
+    class Axes(Enum):
         THROTTLE = 0
         STRAFE = 1
         VERTICAL = 2
         YAW = 3
+
+    class States(Enum):
+        DISARMED = 0
+        MANUAL = 1
+        MISSION = 2
 
     def __init__(self):
         super().__init__('flock_base')
 
         self._trim_speed = 0.25     # TODO parameter
         left_handed = False         # TODO parameter
-        self._joystick_disabled = 0
+        self._state = self.States.DISARMED
 
         # Joystick assignments
         self._joy_axis_throttle = _joy_axis_left_fb if left_handed else _joy_axis_right_fb
@@ -57,39 +62,42 @@ class FlockBase(Node):
         self._joy_button_flip_left = _joy_button_X
         self._joy_button_flip_right = _joy_button_B
         self._joy_button_flip_back = _joy_button_A
-        self._joy_button_left_bumper = _joy_button_left_bumper
-        self._joy_button_disable_joy = _joy_button_X
+        self._joy_button_shift = _joy_button_left_bumper
+        self._joy_button_disarm = _joy_button_X
+        self._joy_button_arm = _joy_button_Y
+        self._joy_button_stop_mission = _joy_button_A
+        self._joy_button_start_mission = _joy_button_B
         self._joy_axis_trim_lr = _joy_axis_trim_lr
         self._joy_axis_trim_fb = _joy_axis_trim_fb
 
         # Trim axis commands
         self._trim_targets_lr = \
             {
-                (-1, False): (self.Axis.YAW, -1.0),
-                (1, False): (self.Axis.YAW, 1.0),
-                (-1, True): (self.Axis.STRAFE, -1.0),
-                (1, True): (self.Axis.STRAFE, 1.0),
+                (-1, False): (self.Axes.YAW, -1.0),
+                (1, False): (self.Axes.YAW, 1.0),
+                (-1, True): (self.Axes.STRAFE, -1.0),
+                (1, True): (self.Axes.STRAFE, 1.0),
             } \
             if left_handed else \
             {
-                (-1, False): (self.Axis.STRAFE, -1.0),
-                (1, False): (self.Axis.STRAFE, 1.0),
-                (-1, True): (self.Axis.YAW, -1.0),
-                (1, True): (self.Axis.YAW, 1.0),
+                (-1, False): (self.Axes.STRAFE, -1.0),
+                (1, False): (self.Axes.STRAFE, 1.0),
+                (-1, True): (self.Axes.YAW, -1.0),
+                (1, True): (self.Axes.YAW, 1.0),
             }
         self._trim_targets_fb = \
             {
-                (-1, False): (self.Axis.THROTTLE, -1.0),
-                (1, False): (self.Axis.THROTTLE, 1.0),
-                (-1, True): (self.Axis.VERTICAL, -1.0),
-                (1, True): (self.Axis.VERTICAL, 1.0),
+                (-1, False): (self.Axes.THROTTLE, -1.0),
+                (1, False): (self.Axes.THROTTLE, 1.0),
+                (-1, True): (self.Axes.VERTICAL, -1.0),
+                (1, True): (self.Axes.VERTICAL, 1.0),
             } \
             if left_handed else \
             {
-                (-1, False): (self.Axis.THROTTLE, -1.0),
-                (1, False): (self.Axis.THROTTLE, 1.0),
-                (-1, True): (self.Axis.VERTICAL, -1.0),
-                (1, True): (self.Axis.VERTICAL, 1.0),
+                (-1, False): (self.Axes.THROTTLE, -1.0),
+                (1, False): (self.Axes.THROTTLE, 1.0),
+                (-1, True): (self.Axes.VERTICAL, -1.0),
+                (1, True): (self.Axes.VERTICAL, 1.0),
             }
 
         # Publications
@@ -97,6 +105,8 @@ class FlockBase(Node):
         self._takeoff_pub = self.create_publisher(Empty, 'takeoff')
         self._land_pub = self.create_publisher(Empty, 'land')
         self._flip_pub = self.create_publisher(Flip, 'flip')
+        self._start_mission_pub = self.create_publisher(Empty, 'start_mission')
+        self._stop_mission_pub = self.create_publisher(Empty, 'stop_mission')
 
         # Subscriptions
         self.create_subscription(Joy, 'joy', self.joy_callback)
@@ -104,38 +114,54 @@ class FlockBase(Node):
     def joy_axis_trim_process(self, msg, axis_id, trim_targets, twist):
         axis_value = msg.axes[axis_id]
         axis_state = -1 if axis_value < -0.5 else 1 if axis_value > 0.5 else 0
-        left_bumper_pressed = msg.buttons[self._joy_button_left_bumper] != 0
+        left_bumper_pressed = msg.buttons[self._joy_button_shift] != 0
         key = (axis_state, left_bumper_pressed)
         if key not in trim_targets:
             return False
         twist_field, twist_sign = trim_targets[key]
         twist_value = twist_sign * self._trim_speed
         print(key, trim_targets[key])
-        if twist_field == self.Axis.THROTTLE:
+        if twist_field == self.Axes.THROTTLE:
             twist.linear.x = twist_value
-        elif twist_field == self.Axis.STRAFE:
+        elif twist_field == self.Axes.STRAFE:
             twist.linear.y = twist_value
-        elif twist_field == self.Axis.VERTICAL:
+        elif twist_field == self.Axes.VERTICAL:
             twist.linear.z = twist_value
         else:
             twist.angular.z = twist_value
         return True
 
+    def transition(self, new_state):
+        if self._state == new_state:
+            return
+
+        self.get_logger().info('transition to %s' % new_state)
+        if self._state == self.States.MISSION and new_state != self.States.MISSION:
+            self._stop_mission_pub.publish(Empty())
+        if self._state != self.States.MISSION and new_state == self.States.MISSION:
+            self._start_mission_pub.publish((Empty()))
+        self._state = new_state
+
     def joy_callback(self, msg):
 
-        # If joystick is disabled, then pressing the left bumper button will enable it
-        if self._joystick_disabled == 1:
-            if msg.buttons[self._joy_button_left_bumper] == 0:
-                self._joystick_disabled = 2  # Wait for button up
-            return
-        elif self._joystick_disabled == 2:
-            if msg.buttons[self._joy_button_left_bumper] == 0:
-                return
-            self._joystick_disabled = 0
+        # Left bumper button modifies the behavior of the other buttons
+        # Left bumper button pressed
+        if msg.buttons[self._joy_button_shift]:
+            if msg.buttons[self._joy_button_disarm]:
+                self.transition(self.States.DISARMED)
+            elif msg.buttons[self._joy_button_arm]:
+                self.transition(self.States.MANUAL)
+            elif msg.buttons[self._joy_button_start_mission]:
+                self.transition(self.States.MISSION)
+            elif msg.buttons[self._joy_button_stop_mission]:
+                self.transition(self.States.MANUAL)
 
-        # Left bumper button modifies the behaviour of the other buttons
+        # Ignore the joystick unless we're in States.MANUAL
+        if self._state != self.States.MANUAL:
+            return
+
         # Left bumper button up
-        if msg.buttons[self._joy_button_left_bumper] == 0:
+        if msg.buttons[self._joy_button_shift] == 0:
             if msg.buttons[self._joy_button_takeoff] != 0:
                 self._takeoff_pub.publish(Empty())
             elif msg.buttons[self._joy_button_land] != 0:
@@ -149,12 +175,6 @@ class FlockBase(Node):
                 self._flip_pub.publish(Flip(flip_command=Flip.FLIP_RIGHT))
             elif msg.buttons[self._joy_button_flip_back] != 0:
                 self._flip_pub.publish(Flip(flip_command=Flip.FLIP_BACK))
-
-        # Left bumper button pressed
-        else:
-            if msg.buttons[self._joy_button_disable_joy] != 0:
-                self._joystick_disabled = 1
-                return
 
         twist = Twist()
 

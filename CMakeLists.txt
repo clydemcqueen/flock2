@@ -22,6 +22,7 @@ install(FILES
   src/detect_aruco.py
   src/flock_base.py
   src/flock_driver.py
+  src/flock_simple_path.py
   src/latch_pub.py
   src/latch_sub.py
   src/simple.py

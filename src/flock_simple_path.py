@@ -325,7 +325,7 @@ class TrajectoryVelocityFlyer:
         self._callback_node.flyer_cmd_callback(vel_cmd)
 
     def _call_flyer_stoping_callback(self):
-        self._callback_node.flyer_stoping_callback()
+        self._callback_node.flyer_stopping_callback()
 
     def _call_flyer_takeoff_callback(self):
         self._callback_node.flyer_takeoff_callback()
@@ -357,6 +357,8 @@ class FlockSimplePath(Node):
         self._land_pub = self.create_publisher(Empty, 'land')
 
         # ROS subscriptions
+        self.create_subscription(Empty, 'start_mission', self._ros_start_callback)
+        self.create_subscription(Empty, 'stop_mission', self._ros_stop_callback)
         self.create_subscription(TFMessage, '/tf', self._ros_tf_callback)
 
         # Timer
@@ -374,6 +376,14 @@ class FlockSimplePath(Node):
         if self._state == self.States.RUNNING:
             self._flyer.stop()
         self._state = self.States.DONE
+
+    def _ros_start_callback(self, msg):
+        self.get_logger().info('starting mission')
+        self.start()
+
+    def _ros_stop_callback(self, msg):
+        self.get_logger().info('stopping mission')
+        self.stop()
 
     def _ros_tf_callback(self, msg):
         if self._state == self.States.RUNNING:
@@ -402,7 +412,7 @@ class FlockSimplePath(Node):
 
             self._cmd_vel_pub.publish(twist)
 
-    def flyer_stoping_callback(self):
+    def flyer_stopping_callback(self):
         # flyer has decided to stop.
         self._state = self.States.DONE
 
@@ -494,7 +504,6 @@ def main(args=None):
     node = FlockSimplePath(flyer)
 
     try:
-        node.start()
         rclpy.spin(node)
     except KeyboardInterrupt:
         node.get_logger().info("Ctrl-C detected, shutting down")
