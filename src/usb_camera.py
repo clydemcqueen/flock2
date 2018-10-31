@@ -5,7 +5,7 @@ import threading
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSHistoryPolicy, QoSReliabilityPolicy
-from geometry_msgs.msg import Vector3
+from geometry_msgs.msg import PoseStamped, Vector3
 from sensor_msgs.msg import Image
 from std_msgs.msg import ColorRGBA
 from tf2_msgs.msg import TFMessage
@@ -46,6 +46,7 @@ class CameraTest(Node):
             reliability=QoSReliabilityPolicy.RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT)
 
         # Publishers
+        self._pose_pub = self.create_publisher(PoseStamped, 'pose')
         self._tf_pub = self.create_publisher(TFMessage, '/tf')
         self._rviz_markers_pub = self.create_publisher(MarkerArray, 'rviz_markers', qos_profile=sensor_qos)
 
@@ -94,6 +95,14 @@ class CameraTest(Node):
             else:
                 cv2.imshow('usb_camera', frame)
                 cv2.waitKey(1)
+
+            # Publish drone pose
+            if drone_pose is not None:
+                pose_stamped = PoseStamped()
+                pose_stamped.header.stamp = util.now()
+                pose_stamped.header.frame_id = 'base_link'
+                pose_stamped.pose = drone_pose
+                self._pose_pub.publish(pose_stamped)
 
             # Publish transforms and rviz markers
             if drone_pose is not None and marker_poses is not None:

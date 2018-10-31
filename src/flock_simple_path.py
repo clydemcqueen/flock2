@@ -9,7 +9,8 @@ import transformations as xf
 import rclpy
 from rclpy.node import Node
 from builtin_interfaces.msg import Time
-from geometry_msgs.msg import Twist, TransformStamped
+from geometry_msgs.msg import PoseStamped, Twist, TransformStamped
+from nav_msgs.msg import Path
 from std_msgs.msg import Empty
 from tf2_msgs.msg import TFMessage
 
@@ -46,7 +47,7 @@ class TrajectoryHandler(object):
         # - each row consists of the following 4 comma separated values:
         #    - relative time (seconds)
         #    - x position
-        #    - y posiiton
+        #    - y position
         #    - z position
         d = np.array(data)
         self._rel_times = d[:, 0]
@@ -355,6 +356,7 @@ class FlockSimplePath(Node):
         self._cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel')
         self._takeoff_pub = self.create_publisher(Empty, 'takeoff')
         self._land_pub = self.create_publisher(Empty, 'land')
+        self._path_pub = self.create_publisher(Path, 'planned_path')
 
         # ROS subscriptions
         self.create_subscription(Empty, 'start_mission', self._ros_start_callback)
@@ -366,6 +368,22 @@ class FlockSimplePath(Node):
         self.create_timer(timer_period_sec, self._ros_timer_callback)
 
         self.get_logger().info('init complete')
+
+    def publish_path(self, waypoints):
+        """Publish a list of waypoints as a ROS path"""
+        path = Path()
+        path.header.stamp = now()
+        path.header.frame_id = 'odom'
+        for waypoint in waypoints:
+            pose = PoseStamped()
+            pose.header.frame_id = 'base_link'
+            pose.header.stamp = now()     # TODO publish planned time
+            pose.pose.position.x = waypoint[1]
+            pose.pose.position.y = waypoint[2]
+            pose.pose.position.z = waypoint[3]
+            pose.pose.orientation.w = 1.  # TODO publish planned orientation
+            path.poses.append(pose)
+        self._path_pub.publish(path)
 
     def start(self):
         if self._state == self.States.INIT:
@@ -502,6 +520,7 @@ def main(args=None):
     flyer.set_waypoints(wp, stabilize_sec=3.0, repeat=True)
 
     node = FlockSimplePath(flyer)
+    node.publish_path(wp)
 
     try:
         rclpy.spin(node)

@@ -5,7 +5,7 @@ import threading
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSHistoryPolicy, QoSReliabilityPolicy
-from geometry_msgs.msg import Twist, Vector3
+from geometry_msgs.msg import PoseStamped, Twist, Vector3
 from sensor_msgs.msg import Image
 from std_msgs.msg import ColorRGBA, Empty
 from tf2_msgs.msg import TFMessage
@@ -48,6 +48,7 @@ class FlockDriver(Node):
 
         # ROS publishers
         self._flight_data_pub = self.create_publisher(FlightData, 'flight_data')
+        self._pose_pub = self.create_publisher(PoseStamped, 'pose')
         self._tf_pub = self.create_publisher(TFMessage, '/tf')
         self._rviz_markers_pub = self.create_publisher(MarkerArray, 'rviz_markers', qos_profile=sensor_qos)
 
@@ -76,7 +77,7 @@ class FlockDriver(Node):
         self.get_logger().info('trying to connect...')
         self._drone = tellopy.Tello()
         self._drone.connect()
-        self._drone.wait_for_connection(90.0)
+        self._drone.wait_for_connection(120.0)
         self._drone.subscribe(self._drone.EVENT_FLIGHT_DATA, self.flight_data_callback)
         self.get_logger().info('connected')
 
@@ -219,6 +220,14 @@ class FlockDriver(Node):
             else:
                 cv2.imshow('usb_camera', color_mat)
                 cv2.waitKey(1)
+
+            # Publish drone pose
+            if drone_pose is not None:
+                pose_stamped = PoseStamped()
+                pose_stamped.header.stamp = util.now()
+                pose_stamped.header.frame_id = 'base_link'
+                pose_stamped.pose = drone_pose
+                self._pose_pub.publish(pose_stamped)
 
             # Publish transforms and rviz markers
             if drone_pose is not None and marker_poses is not None:
