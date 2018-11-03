@@ -1,8 +1,9 @@
 from geometry_msgs.msg import Point, Pose, Quaternion
 
 import cv2
-import numpy
-import transformations
+import numpy as np
+import transformations as xf
+
 
 # Transformation notation:
 # Tst === T_source_target
@@ -13,24 +14,24 @@ import transformations
 
 def rvec_and_tvec_to_matrix(rvec, tvec):
     """Rodrigues rotation and translation vector to 4x4 matrix"""
-    t_matrix = transformations.translation_matrix(tvec)
+    t_matrix = xf.translation_matrix(tvec)
     R, _ = cv2.Rodrigues(rvec)
-    r_matrix = transformations.identity_matrix()
+    r_matrix = xf.identity_matrix()
     r_matrix[:3, :3] = R
-    return numpy.dot(t_matrix, r_matrix)
+    return np.dot(t_matrix, r_matrix)
 
 
 def pose_to_matrix(p):
     """geometry_msgs.msg.Pose to 4x4 matrix"""
-    t_matrix = transformations.translation_matrix([p.position.x, p.position.y, p.position.z])
-    r_matrix = transformations.quaternion_matrix([p.orientation.w, p.orientation.x, p.orientation.y, p.orientation.z])
-    return numpy.dot(t_matrix, r_matrix)
+    t_matrix = xf.translation_matrix([p.position.x, p.position.y, p.position.z])
+    r_matrix = xf.quaternion_matrix([p.orientation.w, p.orientation.x, p.orientation.y, p.orientation.z])
+    return np.dot(t_matrix, r_matrix)
 
 
 def matrix_to_pose(m):
     """4x4 matrix to geometry_msgs.msg.Pose"""
-    t = transformations.translation_from_matrix(m)
-    q = transformations.quaternion_from_matrix(m)   # Order is [w, x, y, z]
+    t = xf.translation_from_matrix(m)
+    q = xf.quaternion_from_matrix(m)  # Order is [w, x, y, z]
     return Pose(position=Point(x=t[0], y=t[1], z=t[2]), orientation=Quaternion(x=q[1], y=q[2], z=q[3], w=q[0]))
 
 
@@ -40,8 +41,8 @@ class DetectArUco(object):
         """Initialize the detector.
 
         Args:
-            camera_matrix: numpy.array(3, 3)
-            distortion: numpy.array(5)
+            camera_matrix: np.array(3, 3)
+            distortion: np.array(5)
         """
 
         self._camera_matrix = camera_matrix
@@ -61,7 +62,7 @@ class DetectArUco(object):
         self._first_marker_pose = Pose(
             position=Point(x=0., y=0., z=1.),
             orientation=Quaternion(x=0.5, y=-0.5, z=-0.5, w=0.5))
-        self._Tom = transformations.inverse_matrix(pose_to_matrix(self._first_marker_pose))
+        self._Tom = xf.inverse_matrix(pose_to_matrix(self._first_marker_pose))
 
         # Tcb transform
         self._Tcb = pose_to_matrix(Pose(
@@ -97,7 +98,7 @@ class DetectArUco(object):
         if self._first_marker_id < 0:
             # Grab the first marker we see
             self._first_marker_id = ids[0][0]
-            logger.info('First marker has id %d' % self._first_marker_id)
+            logger.info('first marker has id %d' % self._first_marker_id)
         else:
             # Stop if the first marker wasn't detected
             found_first_marker = False
@@ -109,11 +110,12 @@ class DetectArUco(object):
                 return color_mat, None, None
 
         # Compute transformations, each is marker_frame => camera_frame
-        rvecs, tvecs, object_points = cv2.aruco.estimatePoseSingleMarkers(corners, self._marker_length, self._camera_matrix, self._distortion)
+        rvecs, tvecs, object_points = cv2.aruco.estimatePoseSingleMarkers(corners, self._marker_length,
+                                                                          self._camera_matrix, self._distortion)
 
         # Compute the drone pose
         drone_pose = None
-        Tbo = transformations.identity_matrix()
+        Tbo = xf.identity_matrix()
         for index in range(len(ids)):
             if ids[index][0] == self._first_marker_id:
                 # Tob = Tcb * Tmc * Tom
@@ -123,7 +125,7 @@ class DetectArUco(object):
                 # sendTransform expects child=target and parent=source
                 # We can't flip source and target because we want odom to be the parent of base_link
                 # Instead, invert Tob to get Tbo
-                Tbo = transformations.inverse_matrix(Tob)
+                Tbo = xf.inverse_matrix(Tob)
                 drone_pose = matrix_to_pose(Tbo)
                 break
 
