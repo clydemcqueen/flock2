@@ -86,6 +86,7 @@ class FlockDriver(Node):
     def connect(self):
         self.get_logger().info('trying to connect...')
         self._drone = tellopy.Tello()
+        self._drone.set_loglevel(1)  # LOG_WARN only
         self._drone.connect()
         self._drone.wait_for_connection(120.0)
         self._drone.subscribe(self._drone.EVENT_FLIGHT_DATA, self.flight_data_callback)
@@ -111,6 +112,8 @@ class FlockDriver(Node):
         flight_data.estimated_flight_time_remaining = data.drone_fly_time_left / 10.
         flight_data.battery_low = bool(data.battery_low)
         flight_data.battery_lower = bool(data.battery_lower)
+        if flight_data.battery_lower:
+            self.get_logger().warn('VERY LOW BATTERY')
 
         # Flight mode
         flight_data.flight_mode = data.fly_mode
