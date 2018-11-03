@@ -5,7 +5,8 @@ import threading
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSHistoryPolicy, QoSReliabilityPolicy
-from geometry_msgs.msg import PoseStamped, Vector3
+from geometry_msgs.msg import Vector3
+from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image
 from std_msgs.msg import ColorRGBA
 from tf2_msgs.msg import TFMessage
@@ -13,7 +14,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 from cv_bridge import CvBridge
 
 import cv2
-import numpy
+import numpy as np
 
 import util
 import detect_aruco
@@ -26,12 +27,22 @@ class CameraTest(Node):
     def __init__(self):
         super().__init__('camera_test')
 
-        # Clyde's USB camera
-        camera_matrix = numpy.array(
+        # Clyde's USB camera, SONY ICX810DKV or ICX811DKV, 6mm diagonal
+        # Driver provides 640x480, assume pixels are 0.0076mm square, f=3.4mm
+        camera_matrix = np.array(
             [[460.465192, 0.000000, 350.820241],
              [0.000000, 459.337700, 251.915294],
              [0.000000, 0.000000, 1.000000]])
-        distortion = numpy.array([0.006521, -0.006982, 0.001500, 0.000761, 0.000000])
+        distortion = np.array([0.006521, -0.006982, 0.001500, 0.000761, 0.000000])
+
+        # Approx covariance at 1 meter
+        self._covariance_1m = np.zeros((6, 6))
+        self._covariance_1m[0, 0] = 3e-4
+        self._covariance_1m[1, 1] = 6e-3
+        self._covariance_1m[2, 2] = 6e-3
+        self._covariance_1m[3, 3] = 1e-4
+        self._covariance_1m[4, 4] = 2e-3
+        self._covariance_1m[5, 5] = 2e-3
 
         # ArUco detector
         self._detector = detect_aruco.DetectArUco(camera_matrix, distortion)
@@ -39,21 +50,21 @@ class CameraTest(Node):
         # Send some data "best effort"
         # Set "unreliable" in rviz2
         # Sadly these messages don't show up in `ros2 topic echo`
-        sensor_qos = QoSProfile(
+        best_effort = QoSProfile(
             depth=1,
             history=QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
             durability=QoSDurabilityPolicy.RMW_QOS_POLICY_DURABILITY_VOLATILE,
             reliability=QoSReliabilityPolicy.RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT)
 
         # Publishers
-        self._pose_pub = self.create_publisher(PoseStamped, 'pose')
+        self._odom_pub = self.create_publisher(Odometry, 'odom', qos_profile=best_effort)
+        self._rviz_markers_pub = self.create_publisher(MarkerArray, 'rviz_markers', qos_profile=best_effort)
         self._tf_pub = self.create_publisher(TFMessage, '/tf')
-        self._rviz_markers_pub = self.create_publisher(MarkerArray, 'rviz_markers', qos_profile=sensor_qos)
 
         # Optionally publish images
         self._publish_images = False
         if self._publish_images:
-            self._image_pub = self.create_publisher(Image, 'image_marked', qos_profile=sensor_qos)
+            self._image_pub = self.create_publisher(Image, 'image_marked', qos_profile=best_effort)
             self._cv_bridge = CvBridge()
         else:
             self._image_pub = None
@@ -77,6 +88,7 @@ class CameraTest(Node):
 
     def video_worker(self):
         cap = cv2.VideoCapture(0)
+        self.get_logger().info('%d x %d' % (cap.get(cv2.CAP_PROP_FRAME_WIDTH), cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
 
         while not self._stop_request.isSet():
             stamp = util.now()
@@ -96,19 +108,24 @@ class CameraTest(Node):
                 cv2.imshow('usb_camera', frame)
                 cv2.waitKey(1)
 
-            # Publish drone pose
+            # Publish odometry
             if drone_pose is not None:
-                pose_stamped = PoseStamped()
-                pose_stamped.header.stamp = util.now()
-                pose_stamped.header.frame_id = 'base_link'
-                pose_stamped.pose = drone_pose
-                self._pose_pub.publish(pose_stamped)
+                # Covariance scales w/ distance**3
+                covariance = (self._covariance_1m * ((1 + (-drone_pose.position.x - 1)) ** 3)).flatten().tolist()
+
+                odom_msg = Odometry()
+                odom_msg.header.frame_id = 'odom'
+                odom_msg.header.stamp = util.now()
+                odom_msg.child_frame_id = 'base_link'
+                odom_msg.pose.pose = drone_pose
+                odom_msg.pose.covariance = covariance
+                # Twist is 0
+                self._odom_pub.publish(odom_msg)
 
             # Publish transforms and rviz markers
             if drone_pose is not None and marker_poses is not None:
-                tf2 = TFMessage()
-                tf2.transforms.append(util.pose_to_transform(drone_pose, stamp, 'odom', 'base_link'))
-                marker_array = MarkerArray()
+                tf_msg = TFMessage()
+                marker_array_msg = MarkerArray()
                 for marker_id, marker_pose in marker_poses.items():
                     marker = Marker()
                     marker.id = marker_id
@@ -118,10 +135,10 @@ class CameraTest(Node):
                     marker.action = Marker.ADD  # TODO DELETE markers that aren't visible
                     marker.scale = Vector3(x=0.1, y=0.1, z=0.01)
                     marker.color = ColorRGBA(r=1., g=1., b=0., a=1.)
-                    marker_array.markers.append(marker)
-                    tf2.transforms.append(util.pose_to_transform(marker_pose, stamp, 'odom', 'marker%d' % marker_id))
-                self._tf_pub.publish(tf2)
-                self._rviz_markers_pub.publish(marker_array)
+                    marker_array_msg.markers.append(marker)
+                    tf_msg.transforms.append(util.pose_to_transform(marker_pose, stamp, 'odom', 'marker%d' % marker_id))
+                self._tf_pub.publish(tf_msg)
+                self._rviz_markers_pub.publish(marker_array_msg)
 
         cap.release()
         cv2.destroyAllWindows()

@@ -5,7 +5,8 @@ import threading
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSHistoryPolicy, QoSReliabilityPolicy
-from geometry_msgs.msg import PoseStamped, Twist, Vector3
+from geometry_msgs.msg import Twist, Vector3
+from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image
 from std_msgs.msg import ColorRGBA, Empty
 from tf2_msgs.msg import TFMessage
@@ -15,7 +16,7 @@ from cv_bridge import CvBridge
 
 import av
 import cv2
-import numpy
+import numpy as np
 import tellopy
 
 import util
@@ -27,12 +28,21 @@ class FlockDriver(Node):
     def __init__(self):
         super().__init__('flock_driver')
 
-        # Clyde's Tello camera
-        camera_matrix = numpy.array(
+        # Clyde's Tello camera, 960x720
+        camera_matrix = np.array(
             [[921.170702, 0.000000, 459.904354],
              [0.000000, 919.018377, 351.238301],
              [0.000000, 0.000000, 1.000000]])
-        distortion = numpy.array([-0.033458, 0.105152, 0.001256, -0.006647, 0.000000])
+        distortion = np.array([-0.033458, 0.105152, 0.001256, -0.006647, 0.000000])
+
+        # Approx covariance at 1 meter
+        self._covariance_1m = np.zeros((6, 6))
+        self._covariance_1m[0, 0] = 3e-4
+        self._covariance_1m[1, 1] = 6e-3
+        self._covariance_1m[2, 2] = 6e-3
+        self._covariance_1m[3, 3] = 1e-4
+        self._covariance_1m[4, 4] = 2e-3
+        self._covariance_1m[5, 5] = 2e-3
 
         # ArUco detector
         self._detector = detect_aruco.DetectArUco(camera_matrix, distortion)
@@ -40,7 +50,7 @@ class FlockDriver(Node):
         # Send some data "best effort"
         # Set "unreliable" in rviz2
         # Sadly these messages don't show up in `ros2 topic echo`
-        sensor_qos = QoSProfile(
+        best_effort = QoSProfile(
             depth=1,
             history=QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
             durability=QoSDurabilityPolicy.RMW_QOS_POLICY_DURABILITY_VOLATILE,
@@ -48,14 +58,14 @@ class FlockDriver(Node):
 
         # ROS publishers
         self._flight_data_pub = self.create_publisher(FlightData, 'flight_data')
-        self._pose_pub = self.create_publisher(PoseStamped, 'pose')
+        self._odom_pub = self.create_publisher(Odometry, 'odom', qos_profile=best_effort)
+        self._rviz_markers_pub = self.create_publisher(MarkerArray, 'rviz_markers', qos_profile=best_effort)
         self._tf_pub = self.create_publisher(TFMessage, '/tf')
-        self._rviz_markers_pub = self.create_publisher(MarkerArray, 'rviz_markers', qos_profile=sensor_qos)
 
         # Optionally publish images
         self._publish_images = False
         if self._publish_images:
-            self._image_pub = self.create_publisher(Image, 'image_marked', qos_profile=sensor_qos)
+            self._image_pub = self.create_publisher(Image, 'image_marked', qos_profile=best_effort)
             self._cv_bridge = CvBridge()
         else:
             self._image_pub = None
@@ -165,21 +175,21 @@ class FlockDriver(Node):
         if data.wind_state:
             log.info('wind_state is nonzero: %d' % data.wind_state)
 
-    def cmd_vel_callback(self, msg):
+    def cmd_vel_callback(self, msg: Twist):
         self._drone.set_pitch(msg.linear.x)
-        self._drone.set_roll(-msg.linear.y)     # Note sign flip
+        self._drone.set_roll(-msg.linear.y)  # Note sign flip
         self._drone.set_throttle(msg.linear.z)
-        self._drone.set_yaw(-msg.angular.z)     # Note sign flip
+        self._drone.set_yaw(-msg.angular.z)  # Note sign flip
 
-    def takeoff_callback(self, msg):
+    def takeoff_callback(self, msg: Empty):
         self.get_logger().info('taking off')
         self._drone.takeoff()
 
-    def land_callback(self, msg):
+    def land_callback(self, msg: Empty):
         self.get_logger().info('landing')
         self._drone.land()
 
-    def flip_callback(self, msg):
+    def flip_callback(self, msg: Flip):
         if msg.flip_command == Flip.FLIP_FORWARD:
             self._drone.flip_forward()
         elif msg.flip_command == Flip.FLIP_BACK:
@@ -207,7 +217,7 @@ class FlockDriver(Node):
             stamp = util.now()
 
             # Convert PyAV frame => PIL image => OpenCV Mat
-            color_mat = cv2.cvtColor(numpy.array(frame.to_image()), cv2.COLOR_RGB2BGR)
+            color_mat = cv2.cvtColor(np.array(frame.to_image()), cv2.COLOR_RGB2BGR)
 
             # Detect markers
             color_mat, drone_pose, marker_poses = self._detector.detect(self.get_logger(), color_mat)
@@ -221,19 +231,24 @@ class FlockDriver(Node):
                 cv2.imshow('usb_camera', color_mat)
                 cv2.waitKey(1)
 
-            # Publish drone pose
+            # Publish odometry
             if drone_pose is not None:
-                pose_stamped = PoseStamped()
-                pose_stamped.header.stamp = util.now()
-                pose_stamped.header.frame_id = 'base_link'
-                pose_stamped.pose = drone_pose
-                self._pose_pub.publish(pose_stamped)
+                # Covariance scales w/ distance**3
+                covariance = (self._covariance_1m * ((1 + (-drone_pose.position.x - 1)) ** 3)).flatten().tolist()
+
+                odom_msg = Odometry()
+                odom_msg.header.frame_id = 'odom'
+                odom_msg.header.stamp = util.now()
+                odom_msg.child_frame_id = 'base_link'
+                odom_msg.pose.pose = drone_pose
+                odom_msg.pose.covariance = covariance
+                # Twist is 0
+                self._odom_pub.publish(odom_msg)
 
             # Publish transforms and rviz markers
             if drone_pose is not None and marker_poses is not None:
-                tf2 = TFMessage()
-                tf2.transforms.append(util.pose_to_transform(drone_pose, stamp, 'odom', 'base_link'))
-                marker_array = MarkerArray()
+                tf_msg = TFMessage()
+                marker_array_msg = MarkerArray()
                 for marker_id, marker_pose in marker_poses.items():
                     marker = Marker()
                     marker.id = marker_id
@@ -243,10 +258,10 @@ class FlockDriver(Node):
                     marker.action = Marker.ADD  # TODO DELETE markers that aren't visible
                     marker.scale = Vector3(x=0.1, y=0.1, z=0.01)
                     marker.color = ColorRGBA(r=1., g=1., b=0., a=1.)
-                    marker_array.markers.append(marker)
-                    tf2.transforms.append(util.pose_to_transform(marker_pose, stamp, 'odom', 'marker%d' % marker_id))
-                self._tf_pub.publish(tf2)
-                self._rviz_markers_pub.publish(marker_array)
+                    marker_array_msg.markers.append(marker)
+                    tf_msg.transforms.append(util.pose_to_transform(marker_pose, stamp, 'odom', 'marker%d' % marker_id))
+                self._tf_pub.publish(tf_msg)
+                self._rviz_markers_pub.publish(marker_array_msg)
 
             # Check for normal shutdown
             if self._stop_request.isSet():

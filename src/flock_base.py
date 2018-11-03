@@ -4,13 +4,12 @@ from enum import Enum
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSHistoryPolicy, QoSReliabilityPolicy
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import PoseStamped, Twist
-from nav_msgs.msg import Path
+from nav_msgs.msg import Odometry, Path
 from std_msgs.msg import Empty
 from flock2.msg import Flip
-
-import util
 
 # XBox One joystick axes and buttons
 _joy_axis_left_lr = 0           # Left stick left/right; 1.0 is left and -1.0 is right
@@ -52,7 +51,7 @@ class FlockBase(Node):
 
         self._trim_speed = 0.25     # TODO parameter
         left_handed = False         # TODO parameter
-        self._state = self.States.DISARMED
+        self._state = self.States.MANUAL
 
         # Joystick assignments
         self._joy_axis_throttle = _joy_axis_left_fb if left_handed else _joy_axis_right_fb
@@ -103,6 +102,13 @@ class FlockBase(Node):
                 (1, True): (self.Axes.VERTICAL, 1.0),
             }
 
+        # Best-effort QoS
+        best_effort = QoSProfile(
+            depth=1,
+            history=QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
+            durability=QoSDurabilityPolicy.RMW_QOS_POLICY_DURABILITY_VOLATILE,
+            reliability=QoSReliabilityPolicy.RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT)
+
         # Publications
         self._cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel')
         self._takeoff_pub = self.create_publisher(Empty, 'takeoff')
@@ -114,7 +120,7 @@ class FlockBase(Node):
 
         # Subscriptions
         self.create_subscription(Joy, 'joy', self.joy_callback)
-        self.create_subscription(PoseStamped, 'pose', self.pose_callback)
+        self.create_subscription(Odometry, 'filtered_odom', self.filtered_odom_callback, qos_profile=best_effort)
 
         # Estimated path
         self._path = Path()
@@ -152,7 +158,7 @@ class FlockBase(Node):
             self._start_mission_pub.publish((Empty()))
         self._state = new_state
 
-    def joy_callback(self, msg):
+    def joy_callback(self, msg: Joy):
 
         # Left bumper button modifies the behavior of the other buttons
         # Left bumper button pressed
@@ -199,10 +205,14 @@ class FlockBase(Node):
 
         self._cmd_vel_pub.publish(twist)
 
-    def pose_callback(self, msg):
+    def filtered_odom_callback(self, msg: Odometry):
         if self._state == self.States.MISSION:
-            self._path.header.stamp = util.now()
-            self._path.poses.append(msg)
+            pose_stamped = PoseStamped()
+            pose_stamped.header.frame_id = 'base_link'
+            pose_stamped.header.stamp = msg.header.stamp
+            pose_stamped.pose = msg.pose.pose
+            self._path.header.stamp = msg.header.stamp
+            self._path.poses.append(pose_stamped)
             self._path_pub.publish(self._path)
 
 
