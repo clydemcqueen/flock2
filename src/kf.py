@@ -9,54 +9,112 @@ class KalmanFilter(object):
         if measurement_dim < 1:
             raise ValueError('measurement_dim must be 1 or greater')
 
-        self.state_dim = state_dim                              # Number of state variables
-        self.measurement_dim = measurement_dim                  # Number of measurement variables
-        self.x = np.zeros((state_dim, 1))                       # State mean
-        self.P = np.eye(state_dim)                              # State covariance
-        self.Q = np.eye(state_dim)                              # Process covariance
-        self.F = np.eye(state_dim)                              # State transition matrix
-        self.H = np.zeros((measurement_dim, state_dim))         # Measurement function
+        self._state_dim = state_dim                             # Number of state variables
+        self._measurement_dim = measurement_dim                 # Number of measurement variables
+        self._x = np.zeros((state_dim, 1))                      # State mean
+        self._P = np.eye(state_dim)                             # State covariance
+        self._Q = np.eye(state_dim)                             # Process covariance
+        self._F = np.eye(state_dim)                             # State transition matrix
+        self._H = np.zeros((measurement_dim, state_dim))        # Measurement function
+        self._K = np.zeros((state_dim, measurement_dim))        # Kalman gain
+        self._y = np.zeros((measurement_dim, 1))                # Residual
+        self._S = np.zeros((measurement_dim, measurement_dim))  # System uncertainty
 
-        # Computed by update, here for inspection
-        self.K = np.zeros((state_dim, measurement_dim))         # Kalman gain
-        self.y = np.zeros((measurement_dim, 1))                 # Residual
-        self.S = np.zeros((measurement_dim, measurement_dim))   # System uncertainty
+    @property
+    def x(self):
+        return self._x
 
-    def check_shapes(self):
-        if self.x.shape != (self.state_dim, 1):
+    @x.setter
+    def x(self, x):
+        if x.shape != (self._state_dim, 1):
             raise ValueError('x shape is wrong')
-        if self.P.shape != (self.state_dim, self.state_dim):
+        self._x = x
+
+    @property
+    def P(self):
+        return self._P
+
+    @P.setter
+    def P(self, P):
+        if P.shape != (self._state_dim, self._state_dim):
             raise ValueError('P shape is wrong')
-        if self.Q.shape != (self.state_dim, self.state_dim):
+        self._P = P
+
+    @property
+    def Q(self):
+        return self._Q
+
+    @Q.setter
+    def Q(self, Q):
+        if Q.shape != (self._state_dim, self._state_dim):
             raise ValueError('Q shape is wrong')
-        if self.F.shape != (self.state_dim, self.state_dim):
+        self._Q = Q
+
+    @property
+    def F(self):
+        return self._F
+
+    @F.setter
+    def F(self, F):
+        if F.shape != (self._state_dim, self._state_dim):
             raise ValueError('F shape is wrong')
-        if self.H.shape != (self.measurement_dim, self.state_dim):
+        self._F = F
+
+    @property
+    def H(self):
+        return self._H
+
+    @ H.setter
+    def H(self, H):
+        if H.shape != (self._measurement_dim, self._state_dim):
             raise ValueError('H shape is wrong')
-        if self.K.shape != (self.state_dim, self.measurement_dim):
+        self._H = H
+
+    @property
+    def K(self):
+        return self._K
+
+    @ K.setter
+    def K(self, K):
+        if K.shape != (self._state_dim, self._measurement_dim):
             raise ValueError('K shape is wrong')
-        if self.y.shape != (self.measurement_dim, 1):
+        self._K = K
+
+    @property
+    def y(self):
+        return self._y
+
+    @ y.setter
+    def y(self, y):
+        if y.shape != (self._measurement_dim, 1):
             raise ValueError('y shape is wrong')
-        if self.S.shape != (self.measurement_dim, self.measurement_dim):
+        self._y = y
+
+    @property
+    def S(self):
+        return self._S
+
+    @ S.setter
+    def S(self, S):
+        if S.shape != (self._measurement_dim, self._measurement_dim):
             raise ValueError('S shape is wrong')
+        self._S = S
 
     def predict(self):
-        self.check_shapes()
-        self.x = np.dot(self.F, self.x)
-        self.P = np.dot(self.F, self.P).dot(self.F.T) + self.Q
-        return self.x, self.P
+        self._x = np.dot(self._F, self._x)
+        self._P = np.dot(self._F, self._P).dot(self._F.T) + self._Q
+        return self._x, self._P
 
     def update(self, z: np.ndarray, R: np.ndarray):
-        self.check_shapes()
-        if z.shape != (self.measurement_dim, 1):
+        if z.shape != (self._measurement_dim, 1):
             raise ValueError('z shape is wrong')
-        if R.shape != (self.measurement_dim, self.measurement_dim):
+        if R.shape != (self._measurement_dim, self._measurement_dim):
             raise ValueError('R shape is wrong')
 
-        PHT = np.dot(self.P, self.H.T)
-        self.S = np.dot(self.H, PHT) + R
-        self.K = np.dot(PHT, np.linalg.inv(self.S))
-        self.y = z - np.dot(self.H, self.x)
-        self.x = self.x + np.dot(self.K, self.y)
-        self.P = self.P - np.dot(self.K, self.H).dot(self.P)  # Should be P = (I - KH)P, but might be unstable?
-        return self.x, self.P
+        PHT = np.dot(self._P, self._H.T)
+        self._S = np.dot(self._H, PHT) + R
+        self._K = np.dot(PHT, np.linalg.inv(self._S))
+        self._y = z - np.dot(self._H, self._x)
+        self._x = self._x + np.dot(self._K, self._y)
+        self._P = self._P - np.dot(self._K, self._H).dot(self._P)  # Should be P = (I - KH)P, but might be unstable?
+        return self._x, self._P
