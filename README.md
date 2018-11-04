@@ -6,7 +6,12 @@ Flock2 is a ROS2 driver for [DJI Tello](https://store.dji.com/product/tello) dro
 
 ### flock_driver
 
-Provides a ROS wrapper around TelloPy.
+Provides a ROS2 wrapper around TelloPy.
+
+Uses ArUco markers to generate odometry.
+Marker positions are published on the `/tf` and `~rviz_markers` topics.
+
+Images can be published on the `~image_marked` topic (CPU intensive), or viewed in a `cv2.imshow` window (fast).
 
 #### Subscribed topics
 
@@ -15,9 +20,20 @@ Provides a ROS wrapper around TelloPy.
 * `~land` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
 * `~flip` flock_msgs/Flip
 
+#### Published topics
+
+* `~flight_data` flock_msgs/FlightData
+* `~odom` [nav_msgs/Odometry](http://docs.ros.org/api/nav_msgs/html/msg/Odometry.html)
+* `~rviz_markers` [visualization_msgs/MarkerArray](http://docs.ros.org/api/visualization_msgs/html/msg/MarkerArray.html)
+* `~image_marked` [sensor_msgs/Image](http://docs.ros.org/api/sensor_msgs/html/msg/Image.html)
+* `/tf` [tf2_msgs/TFMessage](http://docs.ros.org/api/tf2_msgs/html/msg/TFMessage.html)
+
 ### flock_base
 
-Provides teleop and (eventually) autonomous control.
+Provides teleop control.
+
+Allows you to start and stop a mission.
+Most joystick controls are disabled while running a mission.
 
 #### Subscribed topics
 
@@ -29,6 +45,45 @@ Provides teleop and (eventually) autonomous control.
 * `~takeoff` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
 * `~land` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
 * `~flip` flock_msgs/Flip
+* `~start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `~stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+
+### filter
+
+Uses a Kalman filter to estimate pose and velocity.
+The estimate is published on the `filtered_odom` topic.
+
+Publishes a transform from `odom` to `base_link`.
+
+Publishes the estimated path during a mission.
+
+#### Subscribed topics
+
+* `~start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `~stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `~odom` [nav_msgs/Odometry](http://docs.ros.org/api/nav_msgs/html/msg/Odometry.html)
+
+#### Published topics
+
+* `~filtered_odom` [nav_msgs/Odometry](http://docs.ros.org/api/nav_msgs/html/msg/Odometry.html)
+* `~estimated_path` [nav_msgs/Path](http://docs.ros.org/api/nav_msgs/html/msg/Path.html)
+* `/tf` [tf2_msgs/TFMessage](http://docs.ros.org/api/tf2_msgs/html/msg/TFMessage.html)
+
+### flock_simple_path
+
+Generates a continuous flight path, publishes it, and follows it using a P controller.
+Send `start_mission` to run the mission, and `stop_mission` to stop it.
+
+#### Subscribed topics
+
+* `~start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `~stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `/tf` [tf2_msgs/TFMessage](http://docs.ros.org/api/tf2_msgs/html/msg/TFMessage.html)
+
+#### Published topics
+
+* `~planned_path` [nav_msgs/Path](http://docs.ros.org/api/nav_msgs/html/msg/Path.html)
+* `~cmd_vel` [geometry_msgs/Twist](http://docs.ros.org/api/geometry_msgs/html/msg/Twist.html)
 
 ## Installation
 
@@ -36,19 +91,16 @@ Provides teleop and (eventually) autonomous control.
 
 Set up a Ubuntu 18.04 box or VM. This should include ffmpeg 3.4.4 and OpenCV 3.2.
 
-* TODO test on Windows 10
-* TODO test on Mac OS X
-
 ### 2. Set up your Python environment
 
 Use your favorite Python package manager to set up Python 3.6 and the following packages:
 
 * numpy 1.15.2
-* av 0.5.3
+* av 0.5.3 or 6.0.0
 * opencv-python 3.4.3.18
 * opencv-contrib-python 3.4.3.18
 * transformations 2018.9.5
-* tellopy 0.5.0
+* tellopy 0.5.0 or 0.6.0
 
 ### 3. Set up your ROS environment
 
@@ -99,4 +151,14 @@ source ~/flock2_ws/install/setup.bash
 ros2 launch flock2 teleop_launch.py
 ~~~
 
+* TODO add gamepad controls
 * TODO add instructions for running rviz2
+
+## Future Work
+
+The primary goal is to autonomously fly multiple Tello drones in simple patterns.
+
+The flock_driver node may be split off into its own repo.
+
+The authors intend to track the ROS2 releases and migrate the code for each release.
+The next ROS2 release is [Crystal](https://discourse.ros.org/t/timeline-for-crystal/6676).
