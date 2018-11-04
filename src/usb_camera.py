@@ -76,7 +76,7 @@ class CameraTest(Node):
     def start(self):
         self.get_logger().info("starting video thread")
         self._stop_request = threading.Event()
-        self._video_thread = threading.Thread(target=self.video_worker)
+        self._video_thread = threading.Thread(target=self._video_worker)
         self._video_thread.start()
 
     def stop(self):
@@ -86,7 +86,7 @@ class CameraTest(Node):
         self._stop_request = None
         self._video_thread = None
 
-    def video_worker(self):
+    def _video_worker(self):
         cap = cv2.VideoCapture(0)
         self.get_logger().info('%d x %d' % (cap.get(cv2.CAP_PROP_FRAME_WIDTH), cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
 

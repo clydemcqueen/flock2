@@ -120,7 +120,7 @@ class FlockBase(Node):
 
         # Subscriptions
         self.create_subscription(Joy, 'joy', self.joy_callback)
-        self.create_subscription(Odometry, 'filtered_odom', self.filtered_odom_callback, qos_profile=best_effort)
+        self.create_subscription(Odometry, 'filtered_odom', self._filtered_odom_callback, qos_profile=best_effort)
 
         # Estimated path
         self._path = Path()
@@ -205,7 +205,7 @@ class FlockBase(Node):
 
         self._cmd_vel_pub.publish(twist)
 
-    def filtered_odom_callback(self, msg: Odometry):
+    def _filtered_odom_callback(self, msg: Odometry):
         if self._state == self.States.MISSION:
             pose_stamped = PoseStamped()
             pose_stamped.header.frame_id = 'base_link'

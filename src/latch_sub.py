@@ -11,9 +11,9 @@ class LatchSub(Node):
     def __init__(self):
         super().__init__('latch_sub')
         latching_qos = QoSProfile(depth=1, durability=QoSDurabilityPolicy.RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL)
-        self.create_subscription(String, 'foo', self.callback, qos_profile=latching_qos)
+        self.create_subscription(String, 'foo', self._callback, qos_profile=latching_qos)
 
-    def callback(self, msg):
+    def _callback(self, msg):
         self.get_logger().info('Heard %s' % msg.data)
 
 

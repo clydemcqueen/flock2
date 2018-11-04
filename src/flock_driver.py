@@ -72,10 +72,10 @@ class FlockDriver(Node):
             self._cv_bridge = None
 
         # ROS subscriptions
-        self.create_subscription(Twist, 'cmd_vel', self.cmd_vel_callback)
-        self.create_subscription(Empty, 'takeoff', self.takeoff_callback)
-        self.create_subscription(Empty, 'land', self.land_callback)
-        self.create_subscription(Flip, 'flip', self.flip_callback)
+        self.create_subscription(Twist, 'cmd_vel', self._cmd_vel_callback)
+        self.create_subscription(Empty, 'takeoff', self._takeoff_callback)
+        self.create_subscription(Empty, 'land', self._land_callback)
+        self.create_subscription(Flip, 'flip', self._flip_callback)
 
         self._drone = None
         self._video_thread = None
@@ -89,11 +89,11 @@ class FlockDriver(Node):
         self._drone.set_loglevel(1)  # LOG_WARN only
         self._drone.connect()
         self._drone.wait_for_connection(120.0)
-        self._drone.subscribe(self._drone.EVENT_FLIGHT_DATA, self.flight_data_callback)
+        self._drone.subscribe(self._drone.EVENT_FLIGHT_DATA, self._flight_data_callback)
         self.get_logger().info('connected')
 
         self._stop_request = threading.Event()
-        self._video_thread = threading.Thread(target=self.video_worker)
+        self._video_thread = threading.Thread(target=self._video_worker)
         self._video_thread.start()
 
     def disconnect(self):
@@ -104,7 +104,7 @@ class FlockDriver(Node):
         self._drone = None
         self.get_logger().info('disconnected')
 
-    def flight_data_callback(self, event, sender, data, **args):
+    def _flight_data_callback(self, event, sender, data, **args):
         flight_data = FlightData()
 
         # Battery state
@@ -178,21 +178,21 @@ class FlockDriver(Node):
         if data.wind_state:
             log.info('wind_state is nonzero: %d' % data.wind_state)
 
-    def cmd_vel_callback(self, msg: Twist):
+    def _cmd_vel_callback(self, msg: Twist):
         self._drone.set_pitch(msg.linear.x)
         self._drone.set_roll(-msg.linear.y)  # Note sign flip
         self._drone.set_throttle(msg.linear.z)
         self._drone.set_yaw(-msg.angular.z)  # Note sign flip
 
-    def takeoff_callback(self, msg: Empty):
+    def _takeoff_callback(self, msg: Empty):
         self.get_logger().info('taking off')
         self._drone.takeoff()
 
-    def land_callback(self, msg: Empty):
+    def _land_callback(self, msg: Empty):
         self.get_logger().info('landing')
         self._drone.land()
 
-    def flip_callback(self, msg: Flip):
+    def _flip_callback(self, msg: Flip):
         if msg.flip_command == Flip.FLIP_FORWARD:
             self._drone.flip_forward()
         elif msg.flip_command == Flip.FLIP_BACK:
@@ -210,7 +210,7 @@ class FlockDriver(Node):
         elif msg.flip_command == Flip.FLIP_BACKRIGHT:
             self._drone.flip_backright()
 
-    def video_worker(self):
+    def _video_worker(self):
         # Get video stream, open in PyAV.
         container = av.container.open(self._drone.get_video_stream())
 

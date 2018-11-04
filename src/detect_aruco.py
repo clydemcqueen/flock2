@@ -12,7 +12,7 @@ import transformations as xf
 # From transformations.py: "Quaternions w+ix+jy+kz are represented as [w, x, y, z]."
 
 
-def rvec_and_tvec_to_matrix(rvec, tvec):
+def rvec_and_tvec_to_matrix(rvec, tvec) -> np.ndarray:
     """Rodrigues rotation and translation vector to 4x4 matrix"""
     t_matrix = xf.translation_matrix(tvec)
     R, _ = cv2.Rodrigues(rvec)
@@ -21,14 +21,14 @@ def rvec_and_tvec_to_matrix(rvec, tvec):
     return np.dot(t_matrix, r_matrix)
 
 
-def pose_to_matrix(p):
+def pose_to_matrix(p: Pose) -> np.ndarray:
     """geometry_msgs.msg.Pose to 4x4 matrix"""
     t_matrix = xf.translation_matrix([p.position.x, p.position.y, p.position.z])
     r_matrix = xf.quaternion_matrix([p.orientation.w, p.orientation.x, p.orientation.y, p.orientation.z])
     return np.dot(t_matrix, r_matrix)
 
 
-def matrix_to_pose(m):
+def matrix_to_pose(m: np.ndarray) -> Pose:
     """4x4 matrix to geometry_msgs.msg.Pose"""
     t = xf.translation_from_matrix(m)
     q = xf.quaternion_from_matrix(m)  # Order is [w, x, y, z]
