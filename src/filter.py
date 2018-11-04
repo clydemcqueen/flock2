@@ -3,8 +3,9 @@
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSHistoryPolicy, QoSReliabilityPolicy
-from geometry_msgs.msg import Pose
-from nav_msgs.msg import Odometry
+from geometry_msgs.msg import Pose, PoseStamped
+from nav_msgs.msg import Odometry, Path
+from std_msgs.msg import Empty
 from tf2_msgs.msg import TFMessage
 
 import numpy as np
@@ -44,9 +45,26 @@ class Filter(Node):
             history=QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
             durability=QoSDurabilityPolicy.RMW_QOS_POLICY_DURABILITY_VOLATILE,
             reliability=QoSReliabilityPolicy.RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT)
+
+        self.create_subscription(Empty, 'start_mission', self._start_mission_callback)
+        self.create_subscription(Empty, 'stop_mission', self._stop_mission_callback)
         self.create_subscription(Odometry, 'odom', self._odom_callback, qos_profile=best_effort)
+
         self._filtered_odom_pub = self.create_publisher(Odometry, 'filtered_odom', qos_profile=best_effort)
         self._tf_pub = self.create_publisher(TFMessage, '/tf')
+
+        # Publish a path if we're in a mission
+        self._path_pub = self.create_publisher(Path, 'estimated_path')
+        self._publish_path = False
+        self._path = Path()
+        self._path.header.frame_id = 'odom'
+
+    def _start_mission_callback(self, msg: Empty):
+        self._path.poses.clear()
+        self._publish_path = True
+
+    def _stop_mission_callback(self, msg: Empty):
+        self._publish_path = False
 
     def _odom_callback(self, msg: Odometry):
         if not self._last_msg_time:
@@ -116,9 +134,20 @@ class Filter(Node):
         filtered_odom_msg.twist.covariance = P[6:12, 6:12].flatten().tolist()
         self._filtered_odom_pub.publish(filtered_odom_msg)
 
+        # Publish tf
         tf_msg = TFMessage()
         tf_msg.transforms.append(util.pose_to_transform(filtered_pose, msg.header.stamp, 'odom', 'base_link'))
         self._tf_pub.publish(tf_msg)
+
+        # Publish a path if we're in a mission
+        if self._publish_path:
+            pose_stamped = PoseStamped()
+            pose_stamped.header.frame_id = 'base_link'
+            pose_stamped.header.stamp = msg.header.stamp
+            pose_stamped.pose = filtered_odom_msg.pose.pose
+            self._path.header.stamp = msg.header.stamp
+            self._path.poses.append(pose_stamped)
+            self._path_pub.publish(self._path)
 
 
 def main(args=None):

@@ -4,10 +4,8 @@ from enum import Enum
 
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSHistoryPolicy, QoSReliabilityPolicy
 from sensor_msgs.msg import Joy
-from geometry_msgs.msg import PoseStamped, Twist
-from nav_msgs.msg import Odometry, Path
+from geometry_msgs.msg import Twist
 from std_msgs.msg import Empty
 from flock2.msg import Flip
 
@@ -102,13 +100,6 @@ class FlockBase(Node):
                 (1, True): (self.Axes.VERTICAL, 1.0),
             }
 
-        # Best-effort QoS
-        best_effort = QoSProfile(
-            depth=1,
-            history=QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
-            durability=QoSDurabilityPolicy.RMW_QOS_POLICY_DURABILITY_VOLATILE,
-            reliability=QoSReliabilityPolicy.RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT)
-
         # Publications
         self._cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel')
         self._takeoff_pub = self.create_publisher(Empty, 'takeoff')
@@ -116,15 +107,9 @@ class FlockBase(Node):
         self._flip_pub = self.create_publisher(Flip, 'flip')
         self._start_mission_pub = self.create_publisher(Empty, 'start_mission')
         self._stop_mission_pub = self.create_publisher(Empty, 'stop_mission')
-        self._path_pub = self.create_publisher(Path, 'estimated_path')
 
         # Subscriptions
         self.create_subscription(Joy, 'joy', self.joy_callback)
-        self.create_subscription(Odometry, 'filtered_odom', self._filtered_odom_callback, qos_profile=best_effort)
-
-        # Estimated path
-        self._path = Path()
-        self._path.header.frame_id = 'odom'
 
     def joy_axis_trim_process(self, msg, axis_id, trim_targets, twist):
         axis_value = msg.axes[axis_id]
@@ -154,7 +139,6 @@ class FlockBase(Node):
         if self._state == self.States.MISSION and new_state != self.States.MISSION:
             self._stop_mission_pub.publish(Empty())
         if self._state != self.States.MISSION and new_state == self.States.MISSION:
-            self._path.poses.clear()
             self._start_mission_pub.publish((Empty()))
         self._state = new_state
 
@@ -204,16 +188,6 @@ class FlockBase(Node):
             twist.angular.z = msg.axes[self._joy_axis_yaw]       # +yaw is ccw, -yaw is cw
 
         self._cmd_vel_pub.publish(twist)
-
-    def _filtered_odom_callback(self, msg: Odometry):
-        if self._state == self.States.MISSION:
-            pose_stamped = PoseStamped()
-            pose_stamped.header.frame_id = 'base_link'
-            pose_stamped.header.stamp = msg.header.stamp
-            pose_stamped.pose = msg.pose.pose
-            self._path.header.stamp = msg.header.stamp
-            self._path.poses.append(pose_stamped)
-            self._path_pub.publish(self._path)
 
 
 def main(args=None):
