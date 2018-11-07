@@ -148,6 +148,7 @@ Turn on the drone, connect to `TELLO-XXXXX` via wi-fi, and launch ROS:
 ~~~
 source /opt/ros/bouncy/setup.bash
 source ~/flock2_ws/install/setup.bash
+export PYTHONOPTIMIZE=0
 ros2 launch flock2 teleop_launch.py
 ~~~
 

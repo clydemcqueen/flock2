@@ -3,30 +3,28 @@
 import threading
 
 import rclpy
-from rclpy.node import Node
-from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSHistoryPolicy, QoSReliabilityPolicy
-from geometry_msgs.msg import Twist, Vector3
-from nav_msgs.msg import Odometry
-from sensor_msgs.msg import Image
-from std_msgs.msg import ColorRGBA, Empty
-from tf2_msgs.msg import TFMessage
+from geometry_msgs.msg import Twist
+from std_msgs.msg import Empty
 from flock2.msg import Flip, FlightData
-from visualization_msgs.msg import Marker, MarkerArray
-from cv_bridge import CvBridge
 
 import av
 import cv2
 import numpy as np
 import tellopy
 
-import util
-import detect_aruco
+from video_node import VideoNode
 
 
-class FlockDriver(Node):
+class FlockDriver(VideoNode):
+
+    FLIGHT_DATA_TOPIC = 'flight_data'
+
+    CMD_VEL_TOPIC = 'cmd_vel'
+    TAKEOFF_TOPIC = 'takeoff'
+    LAND_TOPIC = 'land'
+    FLIP_TOPIC = 'flip'
 
     def __init__(self):
-        super().__init__('flock_driver')
 
         # Clyde's Tello camera, 960x720
         camera_matrix = np.array(
@@ -36,52 +34,31 @@ class FlockDriver(Node):
         distortion = np.array([-0.033458, 0.105152, 0.001256, -0.006647, 0.000000])
 
         # Approx covariance at 1 meter
-        self._covariance_1m = np.zeros((6, 6))
-        self._covariance_1m[0, 0] = 3e-4
-        self._covariance_1m[1, 1] = 6e-3
-        self._covariance_1m[2, 2] = 6e-3
-        self._covariance_1m[3, 3] = 1e-4
-        self._covariance_1m[4, 4] = 2e-3
-        self._covariance_1m[5, 5] = 2e-3
+        covariance_1m = np.zeros((6, 6))
+        covariance_1m[0, 0] = 3e-4
+        covariance_1m[1, 1] = 6e-3
+        covariance_1m[2, 2] = 6e-3
+        covariance_1m[3, 3] = 1e-4
+        covariance_1m[4, 4] = 2e-3
+        covariance_1m[5, 5] = 2e-3
 
-        # ArUco detector
-        self._detector = detect_aruco.DetectArUco(camera_matrix, distortion)
-
-        # Send some data "best effort"
-        # Set "unreliable" in rviz2
-        # Sadly these messages don't show up in `ros2 topic echo`
-        best_effort = QoSProfile(
-            depth=1,
-            history=QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
-            durability=QoSDurabilityPolicy.RMW_QOS_POLICY_DURABILITY_VOLATILE,
-            reliability=QoSReliabilityPolicy.RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT)
+        super().__init__('flock_driver', camera_matrix, distortion, covariance_1m)
 
         # ROS publishers
-        self._flight_data_pub = self.create_publisher(FlightData, 'flight_data')
-        self._odom_pub = self.create_publisher(Odometry, 'odom', qos_profile=best_effort)
-        self._rviz_markers_pub = self.create_publisher(MarkerArray, 'rviz_markers', qos_profile=best_effort)
-        self._tf_pub = self.create_publisher(TFMessage, '/tf')
-
-        # Optionally publish images
-        self._publish_images = False
-        if self._publish_images:
-            self._image_pub = self.create_publisher(Image, 'image_marked', qos_profile=best_effort)
-            self._cv_bridge = CvBridge()
-        else:
-            self._image_pub = None
-            self._cv_bridge = None
+        self._flight_data_pub = self.create_publisher(FlightData, self.FLIGHT_DATA_TOPIC)
 
         # ROS subscriptions
-        self.create_subscription(Twist, 'cmd_vel', self._cmd_vel_callback)
-        self.create_subscription(Empty, 'takeoff', self._takeoff_callback)
-        self.create_subscription(Empty, 'land', self._land_callback)
-        self.create_subscription(Flip, 'flip', self._flip_callback)
+        self.create_subscription(Twist, self.CMD_VEL_TOPIC, self._cmd_vel_callback)
+        self.create_subscription(Empty, self.TAKEOFF_TOPIC, self._takeoff_callback)
+        self.create_subscription(Empty, self.LAND_TOPIC, self._land_callback)
+        self.create_subscription(Flip, self.FLIP_TOPIC, self._flip_callback)
 
         self._drone = None
         self._video_thread = None
         self._stop_request = None
 
-        self.get_logger().info('init complete')
+        # Allocate messages
+        self._flight_data_msg = FlightData()
 
     def connect(self):
         self.get_logger().info('trying to connect...')
@@ -105,41 +82,40 @@ class FlockDriver(Node):
         self.get_logger().info('disconnected')
 
     def _flight_data_callback(self, event, sender, data, **args):
-        flight_data = FlightData()
-
         # Battery state
-        flight_data.battery_percent = data.battery_percentage
-        flight_data.estimated_flight_time_remaining = data.drone_fly_time_left / 10.
-        flight_data.battery_low = bool(data.battery_low)
-        flight_data.battery_lower = bool(data.battery_lower)
-        if flight_data.battery_lower:
+        self._flight_data_msg.battery_percent = data.battery_percentage
+        self._flight_data_msg.estimated_flight_time_remaining = data.drone_fly_time_left / 10.
+        self._flight_data_msg.battery_low = bool(data.battery_low)
+        self._flight_data_msg.battery_lower = bool(data.battery_lower)
+        if self._flight_data_msg.battery_lower:
             self.get_logger().warn('VERY LOW BATTERY')
 
         # Flight mode
-        flight_data.flight_mode = data.fly_mode
+        self._flight_data_msg.flight_mode = data.fly_mode
 
         # Flight time
-        flight_data.flight_time = data.fly_time / 10.
+        self._flight_data_msg.flight_time = data.fly_time / 10.
 
         # Very coarse velocity data
-        flight_data.east_speed = -1. if data.east_speed > 30000 else data.east_speed / 10.
-        flight_data.north_speed = -1. if data.north_speed > 30000 else data.north_speed / 10.
-        flight_data.ground_speed = -1. if data.ground_speed > 30000 else data.ground_speed / 10.
+        self._flight_data_msg.east_speed = -1. if data.east_speed > 30000 else data.east_speed / 10.
+        self._flight_data_msg.north_speed = -1. if data.north_speed > 30000 else data.north_speed / 10.
+        self._flight_data_msg.ground_speed = -1. if data.ground_speed > 30000 else data.ground_speed / 10.
 
         # Altitude
-        flight_data.altitude = -1. if data.height > 30000 else data.height / 10.
+        self._flight_data_msg.altitude = -1. if data.height > 30000 else data.height / 10.
 
         # Equipment status
-        flight_data.equipment = data.electrical_machinery_state
-        flight_data.high_temperature = bool(data.temperature_height)
+        self._flight_data_msg.equipment = data.electrical_machinery_state
+        self._flight_data_msg.high_temperature = bool(data.temperature_height)
 
         # Some state indicators?
-        flight_data.em_ground = bool(data.em_ground)
-        flight_data.em_sky = bool(data.em_sky)
-        flight_data.em_open = bool(data.em_open)
+        self._flight_data_msg.em_ground = bool(data.em_ground)
+        self._flight_data_msg.em_sky = bool(data.em_sky)
+        self._flight_data_msg.em_open = bool(data.em_open)
 
         # Publish what we have
-        self._flight_data_pub.publish(flight_data)
+        if self.count_subscribers(self.FLIGHT_DATA_TOPIC) > 0:
+            self._flight_data_pub.publish(self._flight_data_msg)
 
         # Debugging: is there data here? Print nonzero values
         log = self.get_logger()
@@ -217,54 +193,12 @@ class FlockDriver(Node):
         # Decode h264
         self.get_logger().info('starting video pipeline')
         for frame in container.decode(video=0):
-            stamp = util.now()
 
             # Convert PyAV frame => PIL image => OpenCV Mat
             color_mat = cv2.cvtColor(np.array(frame.to_image()), cv2.COLOR_RGB2BGR)
 
-            # Detect markers
-            color_mat, drone_pose, marker_poses = self._detector.detect(self.get_logger(), color_mat)
-
-            # Optionally publish images
-            if self._publish_images:
-                image_msg = self._cv_bridge.cv2_to_imgmsg(color_mat, 'bgr8')
-                image_msg.header.stamp = stamp
-                self._image_pub.publish(image_msg)
-            else:
-                cv2.imshow('usb_camera', color_mat)
-                cv2.waitKey(1)
-
-            # Publish odometry
-            if drone_pose is not None:
-                # Covariance scales w/ distance**3
-                covariance = (self._covariance_1m * ((1 + (-drone_pose.position.x - 1)) ** 3)).flatten().tolist()
-
-                odom_msg = Odometry()
-                odom_msg.header.frame_id = 'odom'
-                odom_msg.header.stamp = util.now()
-                odom_msg.child_frame_id = 'base_link'
-                odom_msg.pose.pose = drone_pose
-                odom_msg.pose.covariance = covariance
-                # Twist is 0
-                self._odom_pub.publish(odom_msg)
-
-            # Publish transforms and rviz markers
-            if drone_pose is not None and marker_poses is not None:
-                tf_msg = TFMessage()
-                marker_array_msg = MarkerArray()
-                for marker_id, marker_pose in marker_poses.items():
-                    marker = Marker()
-                    marker.id = marker_id
-                    marker.header.frame_id = 'odom'
-                    marker.pose = marker_pose
-                    marker.type = Marker.CUBE
-                    marker.action = Marker.ADD  # TODO DELETE markers that aren't visible
-                    marker.scale = Vector3(x=0.1, y=0.1, z=0.01)
-                    marker.color = ColorRGBA(r=1., g=1., b=0., a=1.)
-                    marker_array_msg.markers.append(marker)
-                    tf_msg.transforms.append(util.pose_to_transform(marker_pose, stamp, 'odom', 'marker%d' % marker_id))
-                self._tf_pub.publish(tf_msg)
-                self._rviz_markers_pub.publish(marker_array_msg)
+            # Process frame
+            self._process_frame(color_mat)
 
             # Check for normal shutdown
             if self._stop_request.isSet():
