@@ -9,8 +9,8 @@
   <maintainer email="clyde@mcqueen.net">Clyde McQueen</maintainer>
   <license>BSD</license>
 
-  <url type="repository">https://github.com/clydemcqueen/flock.git</url>
-  <url type="bugtracker">https://github.com/clydemcqueen/flock/issues</url>
+  <url type="repository">https://github.com/clydemcqueen/flock2.git</url>
+  <url type="bugtracker">https://github.com/clydemcqueen/flock2/issues</url>
 
   <author>Clyde McQueen</author>
   <author>Peter Mullen</author>
@@ -26,6 +26,7 @@
   <depend>builtin_interfaces</depend>
   <depend>cv_bridge</depend>
   <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
   <depend>rclpy</depend>
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
