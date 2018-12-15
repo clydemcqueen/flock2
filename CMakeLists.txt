@@ -12,6 +12,7 @@ if($ENV{CLION_IDE})
   find_package(fastrtps_cmake_module REQUIRED)
   set(FastRTPS_INCLUDE_DIR "/opt/ros/bouncy/include")
   set(FastRTPS_LIBRARY_RELEASE "/opt/ros/bouncy/lib/libfastrtps.so")
+  set(tello_msgs_DIR "${PROJECT_SOURCE_DIR}/../../install/tello_msgs/share/tello_msgs/cmake")
 endif()
 
 # Debugging: set _dump_all_variables to true
@@ -34,14 +35,8 @@ find_package(nav_msgs REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(tello_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
-
-# Generate ROS messages
-rosidl_generate_interfaces(
-  flock2
-  "msg/FlightData.msg"
-  "msg/Flip.msg"
-)
 
 # Install all Python programs
 install(

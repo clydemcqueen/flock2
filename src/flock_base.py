@@ -7,7 +7,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Empty
-from flock2.msg import Flip
+from tello_msgs.srv import TelloCommand
 
 # XBox One joystick axes and buttons
 _joy_axis_left_lr = 0           # Left stick left/right; 1.0 is left and -1.0 is right
@@ -101,10 +101,6 @@ class FlockBase(Node):
             }
 
         # Publications
-        self._cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel')
-        self._takeoff_pub = self.create_publisher(Empty, 'takeoff')
-        self._land_pub = self.create_publisher(Empty, 'land')
-        self._flip_pub = self.create_publisher(Flip, 'flip')
         self._start_mission_pub = self.create_publisher(Empty, 'start_mission')
         self._stop_mission_pub = self.create_publisher(Empty, 'stop_mission')
 
@@ -161,20 +157,20 @@ class FlockBase(Node):
             return
 
         # Left bumper button up
-        if msg.buttons[self._joy_button_shift] == 0:
-            if msg.buttons[self._joy_button_takeoff] != 0:
-                self._takeoff_pub.publish(Empty())
-            elif msg.buttons[self._joy_button_land] != 0:
-                self._land_pub.publish(Empty())
-
-            if msg.buttons[self._joy_button_flip_forward] != 0:
-                self._flip_pub.publish(Flip(flip_command=Flip.FLIP_FORWARD))
-            elif msg.buttons[self._joy_button_flip_left] != 0:
-                self._flip_pub.publish(Flip(flip_command=Flip.FLIP_LEFT))
-            elif msg.buttons[self._joy_button_flip_right] != 0:
-                self._flip_pub.publish(Flip(flip_command=Flip.FLIP_RIGHT))
-            elif msg.buttons[self._joy_button_flip_back] != 0:
-                self._flip_pub.publish(Flip(flip_command=Flip.FLIP_BACK))
+        # if msg.buttons[self._joy_button_shift] == 0:
+        #     if msg.buttons[self._joy_button_takeoff] != 0:
+        #         self._takeoff_pub.publish(Empty())
+        #     elif msg.buttons[self._joy_button_land] != 0:
+        #         self._land_pub.publish(Empty())
+        #
+        #     if msg.buttons[self._joy_button_flip_forward] != 0:
+        #         self._flip_pub.publish(Flip(flip_command=Flip.FLIP_FORWARD))
+        #     elif msg.buttons[self._joy_button_flip_left] != 0:
+        #         self._flip_pub.publish(Flip(flip_command=Flip.FLIP_LEFT))
+        #     elif msg.buttons[self._joy_button_flip_right] != 0:
+        #         self._flip_pub.publish(Flip(flip_command=Flip.FLIP_RIGHT))
+        #     elif msg.buttons[self._joy_button_flip_back] != 0:
+        #         self._flip_pub.publish(Flip(flip_command=Flip.FLIP_BACK))
 
         twist = Twist()
 
@@ -187,7 +183,7 @@ class FlockBase(Node):
             twist.linear.z = msg.axes[self._joy_axis_vertical]   # +z is ascend, -z is descend
             twist.angular.z = msg.axes[self._joy_axis_yaw]       # +yaw is ccw, -yaw is cw
 
-        self._cmd_vel_pub.publish(twist)
+        # self._cmd_vel_pub.publish(twist)
 
 
 def main(args=None):
