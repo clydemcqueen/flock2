@@ -12,6 +12,9 @@ Manages flight states and drone actions.
 #### Subscribed topics
 
 * `~joy` [sensor_msgs/Joy](http://docs.ros.org/api/sensor_msgs/html/msg/Joy.html)
+* `~cmd_vel` [geometry_msgs/Twist](http://docs.ros.org/api/geometry_msgs/html/msg/Twist.html)
+* `~tello_response` tello_msgs/TelloResponse
+* `~flight_data` tello_msgs/FlightData
 
 #### Published topics
 
@@ -57,10 +60,7 @@ Send `start_mission` to run the mission, and `stop_mission` to stop it.
 #### Published topics
 
 * `~planned_path` [nav_msgs/Path](http://docs.ros.org/api/nav_msgs/html/msg/Path.html)
-
-#### Published services
-
-* `~tello_command` tello_msgs/TelloCommand
+* `~cmd_vel` [geometry_msgs/Twist](http://docs.ros.org/api/geometry_msgs/html/msg/Twist.html)
 
 ## Installation
 
