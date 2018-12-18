@@ -7,10 +7,7 @@ flock2 is built on top of [ROS2](https://index.ros.org/doc/ros2/) and [tello_ros
 
 ### flock_base
 
-Provides teleop control.
-
-Allows you to start and stop a mission.
-Most joystick controls are disabled while running a mission.
+Manages flight states and drone actions.
 
 #### Subscribed topics
 

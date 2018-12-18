@@ -41,6 +41,7 @@ find_package(visualization_msgs REQUIRED)
 # Install all Python programs
 install(
   PROGRAMS  # PROGRAMS sets execute bits, FILES clears them
+  src/action_ mgr.py
   src/detect_aruco.py
   src/filter.py
   src/flock_base.py
