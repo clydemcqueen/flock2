@@ -41,17 +41,13 @@ find_package(visualization_msgs REQUIRED)
 # Install all Python programs
 install(
   PROGRAMS  # PROGRAMS sets execute bits, FILES clears them
-  src/action_ mgr.py
+  src/action_mgr.py
   src/detect_aruco.py
   src/filter.py
   src/flock_base.py
   src/flock_simple_path.py
   src/kf.py
-  src/latch_pub.py
-  src/latch_sub.py
-  src/simple.py
   src/smooth_path_4poly_2min.py
-  src/tf2_test.py
   src/usb_camera.py
   src/util.py
   src/video_node.py
