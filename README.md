@@ -1,7 +1,7 @@
-# flock2
+# `flock2`
 
-flock2 can fly a swarm of [DJI Tello](https://store.dji.com/product/tello) drones.
-flock2 is built on top of [ROS2](https://index.ros.org/doc/ros2/) and [tello_ros](https://github.com/clydemcqueen/tello_ros).
+`flock2` can fly a swarm of [DJI Tello](https://store.dji.com/product/tello) drones.
+`flock2` is built on top of [ROS2](https://index.ros.org/doc/ros2/) and [tello_ros](https://github.com/clydemcqueen/tello_ros).
 
 ## Nodes
 
