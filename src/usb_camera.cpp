@@ -20,11 +20,11 @@ public:
     image_pub_ = create_publisher<sensor_msgs::msg::Image>("image_raw", 1);
 
     if (!camera_.isOpened()) {
-      throw "cannot open camera";
+      RCLCPP_ERROR(get_logger(), "Cannot open camera");
     }
 
     if (!get_camera_info(camera_info_msg_)) {
-      throw "cannot get camera info";
+      RCLCPP_ERROR(get_logger(), "Cannot get camera info");
     }
 
     header_.frame_id = "camera_frame";

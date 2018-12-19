@@ -22,7 +22,7 @@ if($ENV{CLION_IDE})
   set(FastRTPS_INCLUDE_DIR "/opt/ros/bouncy/include")
   set(FastRTPS_LIBRARY_RELEASE "/opt/ros/bouncy/lib/libfastrtps.so")
   set(tello_msgs_DIR "${PROJECT_SOURCE_DIR}/../../install/tello_msgs/share/tello_msgs/cmake")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DRUN_INSIDE_CLION")  # Pass SYMBOL into
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DRUN_INSIDE_CLION")
 endif()
 
 # Debugging: set _dump_all_variables to true
