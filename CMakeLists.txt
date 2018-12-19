@@ -22,6 +22,7 @@ if($ENV{CLION_IDE})
   set(FastRTPS_INCLUDE_DIR "/opt/ros/bouncy/include")
   set(FastRTPS_LIBRARY_RELEASE "/opt/ros/bouncy/lib/libfastrtps.so")
   set(tello_msgs_DIR "${PROJECT_SOURCE_DIR}/../../install/tello_msgs/share/tello_msgs/cmake")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DRUN_INSIDE_CLION")  # Pass SYMBOL into
 endif()
 
 # Debugging: set _dump_all_variables to true
@@ -92,6 +93,14 @@ ament_target_dependencies(
 # Install
 #=============
 
+# Install targets
+install(
+  TARGETS
+  detect_markers
+  usb_camera
+  DESTINATION lib/flock2
+)
+
 # Install all Python programs
 install(
   PROGRAMS  # PROGRAMS sets execute bits, FILES clears them
@@ -108,9 +117,10 @@ install(
   DESTINATION lib/flock2
 )
 
-# Install launch and urdf directories
+# Install cfg, launch and urdf directories
 install(
   DIRECTORY
+  cfg
   launch
   urdf
   DESTINATION share/flock2
