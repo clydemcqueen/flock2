@@ -12,7 +12,8 @@ def generate_launch_description():
     return LaunchDescription([
         Node(package='robot_state_publisher', node_executable='robot_state_publisher', output='screen', arguments=[urdf]),
         Node(package='joy', node_executable='joy_node', output='screen'),
-        Node(package='flock2', node_executable='usb_camera.py', output='screen'),
+        Node(package='flock2', node_executable='usb_camera', output='screen'),
+        Node(package='flock2', node_executable='detect_markers', output='screen'),
         Node(package='flock2', node_executable='filter.py', output='screen'),
         Node(package='flock2', node_executable='flock_base.py', output='screen'),
         Node(package='flock2', node_executable='flock_simple_path.py', output='screen'),

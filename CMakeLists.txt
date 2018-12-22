@@ -39,6 +39,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(builtin_interfaces REQUIRED)
 find_package(cv_bridge REQUIRED)
+find_package(Eigen3)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -51,7 +52,9 @@ find_package(visualization_msgs REQUIRED)
 
 # Local includes
 include_directories(
+  include
   ${cv_bridge_INCLUDE_DIRS}
+  ${Eigen3_INCLUDE_DIRS}
   ${geometry_msgs_INCLUDE_DIRS}
   ${nav_msgs_INCLUDE_DIRS}
   ${sensor_msgs_INCLUDE_DIRS}
@@ -63,7 +66,7 @@ include_directories(
 # Detect markers node
 #=============
 
-add_executable(detect_markers src/detect_markers.cpp)
+add_executable(detect_markers src/detect_markers.cpp src/eigen_util.cpp)
 
 ament_target_dependencies(
   detect_markers

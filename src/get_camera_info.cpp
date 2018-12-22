@@ -12,7 +12,7 @@ std::string cfg_path("install/flock2/share/flock2/cfg/camera_info.txt");
 bool get_camera_info(sensor_msgs::msg::CameraInfo &info)
 {
   // File format: 2 ints and 9 floats, separated by whitespace:
-  // height width fx fy cx cy k1 k2 t1 t2 t3
+  // height width fx fy cx cy k1 k2 t1 t2 k3
 
   std::ifstream file;
   file.open(cfg_path);
@@ -21,11 +21,11 @@ bool get_camera_info(sensor_msgs::msg::CameraInfo &info)
   }
 
   uint32_t height, width;
-  double fx, fy, cx, cy, k1, k2, t1, t2, t3;
+  double fx, fy, cx, cy, k1, k2, t1, t2, k3;
   file >> height >> width;
   file >> fx >> fy;
   file >> cx >> cy;
-  file >> k1 >> k2 >> t1 >> t2 >> t3;
+  file >> k1 >> k2 >> t1 >> t2 >> k3;
   file.close();
 
   // See https://github.com/ros2/common_interfaces/blob/master/sensor_msgs/msg/CameraInfo.msg
@@ -39,7 +39,7 @@ bool get_camera_info(sensor_msgs::msg::CameraInfo &info)
   info.d.push_back(k2);
   info.d.push_back(t1);
   info.d.push_back(t2);
-  info.d.push_back(t3);
+  info.d.push_back(k3);
 
   info.k[0] = fx;
   info.k[1] = 0;
