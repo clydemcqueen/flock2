@@ -77,9 +77,11 @@ Use your favorite Python package manager to set up Python 3.6 and the following 
 * opencv-contrib-python 3.4.3.18
 * transformations 2018.9.5
 
+TODO remove Python OpenCV dependency
+
 ### 3. Set up your ROS environment
 
-[Install ROS2 Bouncy Bolson](https://github.com/ros2/ros2/wiki/Installation) with the `ros-bouncy-desktop` option.
+[Install ROS2 Crystal Clemmys](https://github.com/ros2/ros2/wiki/Installation) with the `ros-crystal-desktop` option.
 
 If you install binaries, be sure to also install the 
 [development tools and ROS tools](https://github.com/ros2/ros2/wiki/Linux-Development-Setup#install-development-tools-and-ros-tools)
@@ -87,7 +89,7 @@ from the source installation instructions.
 
 Install these additional packages:
 ~~~
-sudo apt install ros-bouncy-joystick-drivers
+sudo apt install ros-crystal-joystick-drivers ros-crystal-cv-bridge
 ~~~
 
 ### 4. Install tello_ros and flock2
@@ -99,7 +101,7 @@ cd ~/flock2_ws/src
 git clone https://github.com/clydemcqueen/tello_ros.git
 git clone https://github.com/clydemcqueen/flock2.git
 cd ..
-source /opt/ros/bouncy/setup.bash
+source /opt/ros/crystal/setup.bash
 colcon build --symlink-install --event-handlers console_direct+
 ~~~
 
@@ -126,7 +128,7 @@ This ROS launch file will allow you to fly the drone using a wired XBox One game
 
 Turn on the drone, connect to `TELLO-XXXXX` via wi-fi, and launch ROS:
 ~~~
-source /opt/ros/bouncy/setup.bash
+source /opt/ros/crystal/setup.bash
 source ~/flock2_ws/install/setup.bash
 export PYTHONOPTIMIZE=0
 ros2 launch flock2 teleop_launch.py
@@ -138,6 +140,3 @@ ros2 launch flock2 teleop_launch.py
 ## Future Work
 
 The primary goal is to autonomously fly multiple Tello drones in simple patterns.
-
-The authors intend to track the ROS2 releases and migrate the code for each release.
-The next ROS2 release is [Crystal](https://discourse.ros.org/t/timeline-for-crystal/6676).
