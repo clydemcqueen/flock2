@@ -82,6 +82,9 @@ class Filter(Node):
             return
 
         dt = util.duration(self._last_msg_time, msg.header.stamp)
+        if dt < 0:
+            self.get_logger().error('time going backwards? dt = {}'.format(dt))
+
         self._last_msg_time = msg.header.stamp
         dt2 = 0.5 * dt * dt
 
