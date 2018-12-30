@@ -10,6 +10,9 @@
 
 namespace usb_camera {
 
+// Target fps = 30 / (SKIP + 1)
+const int SKIP = 0;
+
 class USBCamera : public rclcpp::Node
 {
 public:
@@ -39,6 +42,11 @@ public:
     while (rclcpp::ok()) {
       // Block until a frame is available
       camera_.read(frame);
+
+      // Skip some frames while debugging to slow down the pipeline
+      static int skip_count = 0;
+      if (++skip_count < SKIP) continue;
+      skip_count = 0;
 
       // Debugging
       cv::imshow("raw", frame);
