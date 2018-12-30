@@ -1,5 +1,7 @@
 #include "eigen_util.hpp"
 
+#include <cmath>
+
 #include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/odometry.hpp"
@@ -189,8 +191,14 @@ private:
       odom_msg.header.stamp = image_msg->header.stamp;
       odom_msg.child_frame_id = "base_link";
       odom_msg.pose.pose = drone_pose;
-      odom_msg.pose.covariance = covariance_;
-      // Twist is 0
+
+      // Covariance scales w/ distance^3
+      auto factor = 1 + std::pow(-drone_pose.position.x - 1, 3);
+      for (auto cit = covariance_.begin(), mit = odom_msg.pose.covariance.begin();
+          cit != covariance_.end() && mit != odom_msg.pose.covariance.end();
+          cit++, mit++) *mit = *cit * factor;
+
+      // Leave odom_msg.twist at 0
       odom_pub_->publish(odom_msg);
     }
 
