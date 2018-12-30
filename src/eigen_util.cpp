@@ -155,7 +155,7 @@ bool all_close(const geometry_msgs::msg::Pose p1, const geometry_msgs::msg::Pose
     std::abs(p1.orientation.w - p2.orientation.w) < e;
 }
 
-std::ostream& operator<<(std::ostream &os, const Eigen::Affine3d &affine3d)
+std::ostream &operator<<(std::ostream &os, const Eigen::Affine3d &affine3d)
 {
   os << "[";
   for (int row = 0; row < 4; row++) {
@@ -223,3 +223,5 @@ void test_eigen()
   test2();
   test3();
 }
+
+} // namespace eigen_util
