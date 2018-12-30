@@ -47,11 +47,11 @@ public:
     first_marker_pose_.orientation.w = 0.5;
 
     // Transform odom to marker
-    Tom_ = to_affine(first_marker_pose_).inverse(Eigen::TransformTraits::Isometry);
+    Tom_ = eigen_util::to_affine(first_marker_pose_).inverse(Eigen::TransformTraits::Isometry);
 
     // Transform camera to base
     Eigen::Vector3d t(0.035, 0., 0.);
-    Eigen::Quaterniond q(0.5, 0.5, -0.5, -0.5); // w, x, y, z
+    Eigen::Quaterniond q(0.5, -0.5, 0.5, -0.5); // w, x, y, z
     Tcb_ = Eigen::Affine3d();
     Tcb_.translation() = t;
     Tcb_.linear() = q.toRotationMatrix();
@@ -88,6 +88,7 @@ private:
       dist_coeffs_.at<double>(3) = msg->d[3];
       dist_coeffs_.at<double>(4) = msg->d[4];
 
+      RCLCPP_INFO(get_logger(), "have camera info");
       have_camera_info_ = true;
     }
   }
@@ -134,7 +135,7 @@ private:
 
     // Compute marker poses
     std::vector<cv::Vec3d> rvecs, tvecs;
-    cv::aruco::estimatePoseSingleMarkers(corners, 0.05, camera_matrix_, dist_coeffs_, rvecs, tvecs);
+    cv::aruco::estimatePoseSingleMarkers(corners, marker_length_, camera_matrix_, dist_coeffs_, rvecs, tvecs);
 
     // Draw poses
     for (int i = 0; i < ids.size(); i++) {
@@ -155,14 +156,14 @@ private:
     for (int i = 0; i < ids.size(); i++) {
       if (ids[i] == first_marker_id_) {
         // Tob = Tcb * Tmc * Tom
-        Eigen::Affine3d Tmc = to_affine(rvecs[i], tvecs[i]);
+        Eigen::Affine3d Tmc = eigen_util::to_affine(rvecs[i], tvecs[i]);
         Eigen::Affine3d Tob = Tcb_ * Tmc * Tom_;
 
         // sendTransform expects child=target and parent=source
         // We can't flip source and target because we want odom to be the parent of base_link
         // Instead, invert Tob to get Tbo
         Tbo = Tob.inverse(Eigen::TransformTraits::Isometry);
-        drone_pose = to_pose(Tbo);
+        drone_pose = eigen_util::to_pose(Tbo);
       }
     }
 
@@ -175,9 +176,9 @@ private:
       } else {
         // Compute the pose of this marker
         // Tmo = Tbo * Tcb * Tmc
-        Eigen::Affine3d Tmc = to_affine(rvecs[i], tvecs[i]);
+        Eigen::Affine3d Tmc = eigen_util::to_affine(rvecs[i], tvecs[i]);
         Eigen::Affine3d Tmo = Tbo * Tcb_ * Tmc;
-        marker_poses[ids[i]] = to_pose(Tmo);
+        marker_poses[ids[i]] = eigen_util::to_pose(Tmo);
       }
     }
 
@@ -223,7 +224,7 @@ private:
         transform_stamped.header.frame_id = "odom";
         transform_stamped.header.stamp = image_msg->header.stamp;
         transform_stamped.child_frame_id = std::string("marker") + std::to_string(tuple.first);
-        transform_stamped.transform = to_tf(tuple.second);
+        transform_stamped.transform = eigen_util::to_tf(tuple.second);
         tf_msg.transforms.push_back(transform_stamped);
       }
       tf_pub_->publish(tf_msg);
@@ -242,11 +243,12 @@ private:
   bool have_camera_info_{false};
   cv::Mat camera_matrix_;
   cv::Mat dist_coeffs_;
-  int first_marker_id_{-1};
-  geometry_msgs::msg::Pose first_marker_pose_;
-  Eigen::Affine3d Tom_;
-  Eigen::Affine3d Tcb_;
-  std::array<double, 36> covariance_{0};
+  float marker_length_{0.18};                   // Markers are 18cm x 18cm
+  int first_marker_id_{-1};                     // First marker we find
+  geometry_msgs::msg::Pose first_marker_pose_;  // Pose of first marker is fixed
+  Eigen::Affine3d Tom_;                         // Transform odom => first marker
+  Eigen::Affine3d Tcb_;                         // Transform camera_frame => base_link
+  std::array<double, 36> covariance_{0};        // Covariance at 1m
 };
 
 } // namespace detect_markers

@@ -4,6 +4,12 @@
 
 #include "opencv2/calib3d/calib3d.hpp"
 
+// Notes:
+// -- OpenCV matrices are in row-major order, whereas Eigen matrices are column-major order
+// -- ROS quaternions are x, y, z, w, whereas Eigen quaternions are w, x, y, z
+
+namespace eigen_util {
+
 Eigen::Affine3d to_affine(const cv::Vec3d &rvec, const cv::Vec3d &tvec)
 {
   Eigen::Vector3d t;
@@ -15,9 +21,9 @@ Eigen::Affine3d to_affine(const cv::Vec3d &rvec, const cv::Vec3d &tvec)
   cv::Rodrigues(rvec, rmat);
 
   Eigen::Matrix3d R;
-  for (int i = 0; i < 3; i++) {
-    for (int j = 0; j < 3; j++) {
-      R(i, j) = rmat.at<double>(i, i);
+  for (int row = 0; row < 3; row++) {
+    for (int col = 0; col < 3; col++) {
+      R(col, row) = rmat.at<double>(row, col);  // Row- vs. column-major order
     }
   }
 
@@ -147,6 +153,26 @@ bool all_close(const geometry_msgs::msg::Pose p1, const geometry_msgs::msg::Pose
     std::abs(p1.orientation.y - p2.orientation.y) < e &&
     std::abs(p1.orientation.z - p2.orientation.z) < e &&
     std::abs(p1.orientation.w - p2.orientation.w) < e;
+}
+
+std::ostream& operator<<(std::ostream &os, const Eigen::Affine3d &affine3d)
+{
+  os << "[";
+  for (int row = 0; row < 4; row++) {
+    os << "[";
+    for (int col = 0; col < 4; col++) {
+      os << affine3d.data()[col * 4 + row];
+      if (col < 3) {
+        os << ", ";
+      }
+    }
+    os << "]";
+    if (row < 3) {
+      os << ", ";
+    }
+  }
+  os << "]";
+  return os;
 }
 
 void test1()

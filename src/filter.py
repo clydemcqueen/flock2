@@ -2,7 +2,6 @@
 
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSHistoryPolicy, QoSReliabilityPolicy
 from geometry_msgs.msg import PoseStamped, TransformStamped
 from nav_msgs.msg import Odometry, Path
 from std_msgs.msg import Empty
@@ -56,18 +55,12 @@ class Filter(Node):
 
         self._filter.Q = np.eye(self.STATE_DIM) * 0.0001  # TODO revisit
 
-        best_effort = QoSProfile(
-            depth=1,
-            history=QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
-            durability=QoSDurabilityPolicy.RMW_QOS_POLICY_DURABILITY_VOLATILE,
-            reliability=QoSReliabilityPolicy.RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT)
-
         self.create_subscription(Empty, 'start_mission', self._start_mission_callback)
         self.create_subscription(Empty, 'stop_mission', self._stop_mission_callback)
-        self.create_subscription(Odometry, 'odom', self._odom_callback, qos_profile=best_effort)
+        self.create_subscription(Odometry, 'odom', self._odom_callback)
 
-        self._filtered_odom_pub = self.create_publisher(Odometry, self.FILTERED_ODOM_TOPIC, qos_profile=best_effort)
-        self._path_pub = self.create_publisher(Path, self.ESTIMATED_PATH_TOPIC, qos_profile=best_effort)
+        self._filtered_odom_pub = self.create_publisher(Odometry, self.FILTERED_ODOM_TOPIC)
+        self._path_pub = self.create_publisher(Path, self.ESTIMATED_PATH_TOPIC)
         self._tf_pub = self.create_publisher(TFMessage, self.TF_TOPIC)
 
         # Allocate messages
