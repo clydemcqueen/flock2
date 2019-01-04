@@ -107,22 +107,7 @@ colcon build --event-handlers console_direct+
 
 ## Running
 
-### Test the environment
-
-**TODO**
-
-This script will connect to the drone and display a video feed in an OpenCV window.
-It will also look for ArUco 6x6 markers and highlight them in green.
-It does not require ROS.
-
-Turn on the drone, connect to `TELLO-XXXXX` via wi-fi, and run this script:
-~~~
-python ~/flock2_ws/src/flock2/scripts/environment_test.py
-~~~
-
 ### Teleop
-
-**TODO**
 
 This ROS launch file will allow you to fly the drone using a wired XBox One gamepad.
 
@@ -134,7 +119,11 @@ export PYTHONOPTIMIZE=0
 ros2 launch flock2 teleop_launch.py
 ~~~
 
-* TODO add gamepad controls
+Controls:
+* menu button to take off
+* view button to land
+* left bumper and B to start mission
+* left bumper and A to stop mission
 
 ## Future Work
 
