@@ -13,6 +13,7 @@ def generate_launch_description():
     return LaunchDescription([
         ExecuteProcess(cmd=['rviz2', '-d', 'src/flock2/launch/default.rviz'], output='screen'),
         Node(package='robot_state_publisher', node_executable='robot_state_publisher', output='screen', arguments=[urdf]),
+        Node(package='tello_driver', node_executable='tello_driver', output='screen'),
         Node(package='joy', node_executable='joy_node', output='screen'),
         Node(package='flock2', node_executable='detect_markers', output='screen'),
         Node(package='flock2', node_executable='filter.py', output='screen'),

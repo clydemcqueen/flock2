@@ -12,12 +12,12 @@ Manages flight states and drone actions.
 #### Subscribed topics
 
 * `~joy` [sensor_msgs/Joy](http://docs.ros.org/api/sensor_msgs/html/msg/Joy.html)
-* `~cmd_vel` [geometry_msgs/Twist](http://docs.ros.org/api/geometry_msgs/html/msg/Twist.html)
 * `~tello_response` tello_msgs/TelloResponse
 * `~flight_data` tello_msgs/FlightData
 
 #### Published topics
 
+* `~cmd_vel` [geometry_msgs/Twist](http://docs.ros.org/api/geometry_msgs/html/msg/Twist.html)
 * `~start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
 * `~stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
 
@@ -102,7 +102,7 @@ git clone https://github.com/clydemcqueen/tello_ros.git
 git clone https://github.com/clydemcqueen/flock2.git
 cd ..
 source /opt/ros/crystal/setup.bash
-colcon build --symlink-install --event-handlers console_direct+
+colcon build --event-handlers console_direct+
 ~~~
 
 ## Running
@@ -135,7 +135,6 @@ ros2 launch flock2 teleop_launch.py
 ~~~
 
 * TODO add gamepad controls
-* TODO add instructions for running rviz2
 
 ## Future Work
 

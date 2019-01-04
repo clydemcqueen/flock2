@@ -45,7 +45,6 @@ class Actions(Enum):
 
     TAKEOFF = 'takeoff'
     LAND = 'land'
-    RC = 'rc'
     START_MISSION = 'start_mission'
     STOP_MISSION = 'stop_mission'
     CONNECT = 'connect'
@@ -95,32 +94,15 @@ _transitions = [
     Transition(FlightStates.LANDED, Actions.TAKEOFF, FlightStates.FLY_MANUAL, False),
     Transition(FlightStates.FLY_MANUAL, Actions.LAND, FlightStates.LANDED, False),
 
-    # Manual flight
-    Transition(FlightStates.FLY_MANUAL, Actions.RC, FlightStates.FLY_MANUAL, False),
-
     # Start / stop mission
     Transition(FlightStates.FLY_MANUAL, Actions.START_MISSION, FlightStates.FLY_MISSION, True),
     Transition(FlightStates.FLY_MISSION, Actions.STOP_MISSION, FlightStates.FLY_MANUAL, True),
-
-    # Autonomous flight
-    Transition(FlightStates.FLY_MISSION, Actions.RC, FlightStates.FLY_MISSION, False),
 ]
 
 
 class FlockBase(Node):
     """
     FlockBase manages flight states, state transitions and drone actions.
-
-    tello_ros (and the Tello drones) only support 1 active action, but the semantics of
-    rc actions ("rc a b c d") is fairly different than long running actions (e.g., "takeoff").
-    FlockBase keeps track of 2 types of actions: priority actions and rc actions.
-
-    Mechanics:
-        -- rc actions are not sent if there's a pending priority action
-        -- rc actions are not sent if the drone is on the ground
-        -- rc actions are sent as often as possible
-
-    FlockBase subscribes to cmd_vel messages, and turns these into rc actions.
     """
 
     class Axes(Enum):
@@ -190,11 +172,11 @@ class FlockBase(Node):
         # Publications
         self._start_mission_pub = self.create_publisher(Empty, 'start_mission')
         self._stop_mission_pub = self.create_publisher(Empty, 'stop_mission')
+        self._cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel')
 
         # Subscriptions
         self.create_subscription(TelloResponse, 'tello_response', self.tello_response_callback)
         self.create_subscription(FlightData, 'flight_data', self.flight_data_callback)
-        self.create_subscription(Twist, 'cmd_vel', self.cmd_vel_callback)
         self.create_subscription(Joy, 'joy', self.joy_callback)
 
         # Services
@@ -221,12 +203,17 @@ class FlockBase(Node):
 
     def spin_once(self):
         """
-        spin_once advances the action.
+        spin_once advances the action, and sends periodic messages.
         """
         if self._rc_mgr:
             self._rc_mgr.advance()
         elif self._pr_mgr:
             self._pr_mgr.advance()
+
+        # If the drone is flying and isn't busy, send a cmd_vel message
+        if self._pr_mgr is None and (self._flight_state == FlightStates.FLY_MANUAL or
+                                     self._flight_state == FlightStates.FLY_MISSION):
+            self._cmd_vel_pub.publish(self._twist)
 
     def tello_response_callback(self, msg: TelloResponse):
         """
@@ -251,14 +238,6 @@ class FlockBase(Node):
         else:
             self.get_logger().error("unexpected message on tello_response")
 
-        # If there's no priority action, and we're flying, start an rc action
-        if self._pr_mgr is None and (self._flight_state == FlightStates.FLY_MANUAL or
-                                     self._flight_state == FlightStates.FLY_MISSION):
-            rc_str = 'rc {0:4.1f} {1:4.1f} {2:4.1f} {3:4.1f}'.format(
-                self._twist.linear.y * -100, self._twist.linear.x * 100,
-                self._twist.linear.z * 100, self._twist.angular.z * -100)
-            self._rc_mgr = ActionMgr(self.get_logger(), self._tello_client, Actions.RC, rc_str)
-
     def internal_action(self, action):
         if action == Actions.START_MISSION:
             self._start_mission_pub.publish((Empty()))
@@ -273,10 +252,6 @@ class FlockBase(Node):
             self.get_logger().error('{} not allowed in {}'.format(action, self._flight_state))
             return
 
-        # Some actions don't result in state transitions, e.g., RC
-        if self._flight_state == transition.next_state:
-            return
-
         self.get_logger().info('transition to {}'.format(transition.next_state))
         self._flight_state = transition.next_state
 
@@ -284,10 +259,6 @@ class FlockBase(Node):
         if self._flight_state == FlightStates.UNKNOWN:
             self.get_logger().info('receiving flight data')
             self.transition_state(Actions.CONNECT)
-
-    def cmd_vel_callback(self, msg: Twist):
-        if self._flight_state == FlightStates.FLY_MISSION:
-            self._twist = msg
 
     def joy_axis_trim_process(self, msg, axis_id, trim_targets, twist):
         axis_value = msg.axes[axis_id]
@@ -345,7 +316,7 @@ def main(args=None):
     try:
         while rclpy.ok():
             node.spin_once()
-            rclpy.spin_once(node, timeout_sec=(0.05))
+            rclpy.spin_once(node, timeout_sec=0.05)
     except KeyboardInterrupt:
         node.get_logger().info("Ctrl-C detected, shutting down")
     finally:
