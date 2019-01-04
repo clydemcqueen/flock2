@@ -7,14 +7,10 @@ Panels:
         - /Global Options1
         - /TF1/Frames1
         - /TF1/Tree1
-        - /RobotModel1
-        - /RobotModel1/Status1
-        - /Odometry1
         - /Odometry1/Shape1
         - /Odometry1/Covariance1
         - /Odometry1/Covariance1/Position1
         - /Odometry1/Covariance1/Orientation1
-        - /Odometry2
         - /Odometry2/Shape1
         - /Odometry2/Covariance1
         - /Odometry2/Covariance1/Position1
@@ -64,7 +60,7 @@ Visualization Manager:
       Normalize Range: true
       Queue Size: 1
       Topic: /image_marked
-      Unreliable: true
+      Unreliable: false
       Value: false
     - Class: rviz_default_plugins/TF
       Enabled: false
@@ -84,7 +80,7 @@ Visualization Manager:
       Enabled: true
       Name: MarkerArray
       Namespaces:
-        "": true
+        {}
       Queue Size: 10
       Topic: /rviz_markers
       Unreliable: true
@@ -102,16 +98,6 @@ Visualization Manager:
         Expand Link Details: false
         Expand Tree: false
         Link Tree Style: Links in Alphabetic Order
-        base_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        camera_frame:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
       Name: RobotModel
       TF Prefix: ""
       Unreliable: false
@@ -196,7 +182,7 @@ Visualization Manager:
         Shaft Radius: 0.05000000074505806
         Value: Axes
       Topic: /odom
-      Unreliable: true
+      Unreliable: false
       Value: false
     - Angle Tolerance: 0.009999999776482582
       Class: rviz_default_plugins/Odometry
@@ -230,7 +216,7 @@ Visualization Manager:
         Shaft Radius: 0.05000000074505806
         Value: Axes
       Topic: /filtered_odom
-      Unreliable: true
+      Unreliable: false
       Value: true
   Enabled: true
   Global Options:
@@ -249,6 +235,9 @@ Visualization Manager:
     - Class: rviz_default_plugins/PublishPoint
       Single click: true
       Topic: /clicked_point
+  Transformation:
+    Current:
+      Class: rviz_default_plugins/TF
   Value: true
   Views:
     Current:

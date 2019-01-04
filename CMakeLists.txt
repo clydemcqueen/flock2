@@ -108,15 +108,12 @@ install(
 install(
   PROGRAMS  # PROGRAMS sets execute bits, FILES clears them
   src/action_mgr.py
-  src/detect_aruco.py
   src/filter.py
   src/flock_base.py
   src/flock_simple_path.py
   src/kf.py
   src/smooth_path_4poly_2min.py
-  src/usb_camera.py
   src/util.py
-  src/video_node.py
   DESTINATION lib/flock2
 )
 

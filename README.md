@@ -70,14 +70,10 @@ Set up a Ubuntu 18.04 box or VM. This should include ffmpeg 3.4.4 and OpenCV 3.2
 
 ### 2. Set up your Python environment
 
-Use your favorite Python package manager to set up Python 3.6 and the following packages:
+Use your favorite Python package manager to set up Python 3.6+ and the following packages:
 
 * numpy 1.15.2
-* opencv-python 3.4.3.18
-* opencv-contrib-python 3.4.3.18
 * transformations 2018.9.5
-
-TODO remove Python OpenCV dependency
 
 ### 3. Set up your ROS environment
 
