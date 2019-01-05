@@ -1,3 +1,6 @@
+#ifndef EIGEN_UTIL_H
+#define EIGEN_UTIL_H
+
 #include <geometry_msgs/msg/transform__struct.hpp>
 #include "eigen3/Eigen/Geometry"
 #include "geometry_msgs/msg/pose.hpp"
@@ -23,3 +26,5 @@ bool is_nan(const geometry_msgs::msg::Pose p1);
 std::ostream& operator<<(std::ostream &os, const Eigen::Affine3d &affine3d);
 
 } // namespace eigen_util
+
+#endif // EIGEN_UTIL_H
