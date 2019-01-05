@@ -3,11 +3,16 @@
 from enum import Enum
 
 import rclpy
+from rclpy.logging import LoggingSeverity
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Empty
-from flock2.msg import Flip
+from tello_msgs.msg import FlightData
+from tello_msgs.msg import TelloResponse
+from tello_msgs.srv import TelloAction
+
+from action_mgr import ActionMgr
 
 # XBox One joystick axes and buttons
 _joy_axis_left_lr = 0           # Left stick left/right; 1.0 is left and -1.0 is right
@@ -31,7 +36,74 @@ _joy_button_left_stick = 9      # Left stick button
 _joy_button_right_stick = 10    # Right stick button
 
 
+class Actions(Enum):
+    """
+    Actions are things that
+        (a) cause state transitions, and/or
+        (b) get sent to the drone
+    """
+
+    TAKEOFF = 'takeoff'
+    LAND = 'land'
+    START_MISSION = 'start_mission'
+    STOP_MISSION = 'stop_mission'
+    CONNECT = 'connect'
+    DISCONNECT = 'disconnect'
+
+
+class FlightStates(Enum):
+    """
+    FlightStates determine which Actions are allowed.
+    """
+
+    UNKNOWN = 0         # Just starting, lost connection, etc.
+    LANDED = 1          # On the ground
+    FLY_MANUAL = 2      # In the air, manual operation
+    FLY_MISSION = 3     # In the air, autonomous operation
+
+
+class Transition(object):
+    """
+    Transition from one flight state to another.
+    Internal actions don't need to be sent to the drone, e.g., START_MISSION
+    """
+
+    def __init__(self, curr_state, action, next_state, internal):
+        self.curr_state = curr_state    # If we're in this state...
+        self.action = action            # and we apply this action...
+        self.next_state = next_state    # we'll end up here.
+        self.internal = internal        # True if this is an internal action
+
+
+def find_transition(state: FlightStates, action: Actions):
+    for transition in _transitions:
+        if transition.curr_state == state and transition.action == action:
+            return transition
+    return None
+
+
+# Allowed transitions
+_transitions = [
+    # Connect / disconnect
+    Transition(FlightStates.UNKNOWN, Actions.CONNECT, FlightStates.LANDED, True),
+    Transition(FlightStates.LANDED, Actions.DISCONNECT, FlightStates.UNKNOWN, True),
+    Transition(FlightStates.FLY_MANUAL, Actions.DISCONNECT, FlightStates.UNKNOWN, True),
+    Transition(FlightStates.FLY_MISSION, Actions.DISCONNECT, FlightStates.UNKNOWN, True),
+
+    # Take off / land
+    Transition(FlightStates.LANDED, Actions.TAKEOFF, FlightStates.FLY_MANUAL, False),
+    Transition(FlightStates.FLY_MANUAL, Actions.LAND, FlightStates.LANDED, False),
+
+    # Start / stop mission
+    Transition(FlightStates.FLY_MANUAL, Actions.START_MISSION, FlightStates.FLY_MISSION, True),
+    Transition(FlightStates.FLY_MISSION, Actions.STOP_MISSION, FlightStates.FLY_MANUAL, True),
+]
+
+
 class FlockBase(Node):
+    """
+    FlockBase manages flight states, state transitions and drone actions.
+    """
 
     class Axes(Enum):
         THROTTLE = 0
@@ -39,17 +111,20 @@ class FlockBase(Node):
         VERTICAL = 2
         YAW = 3
 
-    class States(Enum):
-        DISARMED = 0
-        MANUAL = 1
-        MISSION = 2
-
     def __init__(self):
         super().__init__('flock_base')
+        self.get_logger().set_level(LoggingSeverity.INFO)
 
-        self._trim_speed = 0.25     # TODO parameter
-        left_handed = False         # TODO parameter
-        self._state = self.States.MANUAL
+        self._trim_speed = 0.2
+        left_handed = False
+
+        # Actions:
+        self._pr_mgr: ActionMgr = None
+        self._rc_mgr: ActionMgr = None
+        self._twist = Twist()
+
+        # Flight state
+        self._flight_state = FlightStates.UNKNOWN
 
         # Joystick assignments
         self._joy_axis_throttle = _joy_axis_left_fb if left_handed else _joy_axis_right_fb
@@ -58,13 +133,7 @@ class FlockBase(Node):
         self._joy_axis_yaw = _joy_axis_left_lr
         self._joy_button_takeoff = _joy_button_menu
         self._joy_button_land = _joy_button_view
-        self._joy_button_flip_forward = _joy_button_Y
-        self._joy_button_flip_left = _joy_button_X
-        self._joy_button_flip_right = _joy_button_B
-        self._joy_button_flip_back = _joy_button_A
         self._joy_button_shift = _joy_button_left_bumper
-        self._joy_button_disarm = _joy_button_X
-        self._joy_button_arm = _joy_button_Y
         self._joy_button_stop_mission = _joy_button_A
         self._joy_button_start_mission = _joy_button_B
         self._joy_axis_trim_lr = _joy_axis_trim_lr
@@ -101,15 +170,94 @@ class FlockBase(Node):
             }
 
         # Publications
-        self._cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel')
-        self._takeoff_pub = self.create_publisher(Empty, 'takeoff')
-        self._land_pub = self.create_publisher(Empty, 'land')
-        self._flip_pub = self.create_publisher(Flip, 'flip')
         self._start_mission_pub = self.create_publisher(Empty, 'start_mission')
         self._stop_mission_pub = self.create_publisher(Empty, 'stop_mission')
+        self._cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel')
 
         # Subscriptions
+        self.create_subscription(TelloResponse, 'tello_response', self.tello_response_callback)
+        self.create_subscription(FlightData, 'flight_data', self.flight_data_callback)
         self.create_subscription(Joy, 'joy', self.joy_callback)
+
+        # Services
+        self._tello_client = self.create_client(TelloAction, 'tello_action')
+
+    def start_priority_action(self, action: Actions):
+        """
+        Starts a priority action. Can be called from a ROS callback: fast, doesn't block.
+        """
+        if self._pr_mgr:
+            self.get_logger().debug('busy, dropping {}'.format(action))
+            return
+
+        transition = find_transition(self._flight_state, action)
+        if transition is None:
+            self.get_logger().debug('{} not allowed in {}'.format(action, self._flight_state))
+            return
+
+        if transition.internal:
+            self.internal_action(action)
+        else:
+            self.get_logger().info('initiating {}'.format(action))
+            self._pr_mgr = ActionMgr(self.get_logger(), self._tello_client, action, action.value)
+
+    def spin_once(self):
+        """
+        spin_once advances the action, and sends periodic messages.
+        """
+        if self._rc_mgr:
+            self._rc_mgr.advance()
+        elif self._pr_mgr:
+            self._pr_mgr.advance()
+
+        # If we're flying manually and the drone isn't busy, send a cmd_vel message
+        if self._flight_state == FlightStates.FLY_MANUAL and self._pr_mgr is None:
+            self._cmd_vel_pub.publish(self._twist)
+
+    def tello_response_callback(self, msg: TelloResponse):
+        """
+        tello_response_callback completes the action.
+        """
+        if self._rc_mgr:
+            self._rc_mgr.complete(msg)
+            if self._rc_mgr.state == ActionMgr.States.SUCCEEDED:
+                self.transition_state(self._rc_mgr.action_code)
+            elif self._rc_mgr.state == ActionMgr.States.FAILED_LOST_CONNECTION:
+                self.transition_state(Actions.DISCONNECT)
+            self._rc_mgr = None
+
+        elif self._pr_mgr:
+            self._pr_mgr.complete(msg)
+            if self._pr_mgr.state == ActionMgr.States.SUCCEEDED:
+                self.transition_state(self._pr_mgr.action_code)
+            elif self._pr_mgr.state == ActionMgr.States.FAILED_LOST_CONNECTION:
+                self.transition_state(Actions.DISCONNECT)
+            self._pr_mgr = None
+
+        else:
+            self.get_logger().error("unexpected message on tello_response")
+
+    def internal_action(self, action):
+        if action == Actions.START_MISSION:
+            self._start_mission_pub.publish((Empty()))
+        elif action == Actions.STOP_MISSION:
+            self._stop_mission_pub.publish(Empty())
+
+        self.transition_state(action)
+
+    def transition_state(self, action: Actions):
+        transition = find_transition(self._flight_state, action)
+        if transition is None:
+            self.get_logger().error('{} not allowed in {}'.format(action, self._flight_state))
+            return
+
+        self.get_logger().info('transition to {}'.format(transition.next_state))
+        self._flight_state = transition.next_state
+
+    def flight_data_callback(self, _):
+        if self._flight_state == FlightStates.UNKNOWN:
+            self.get_logger().info('receiving flight data')
+            self.transition_state(Actions.CONNECT)
 
     def joy_axis_trim_process(self, msg, axis_id, trim_targets, twist):
         axis_value = msg.axes[axis_id]
@@ -131,63 +279,33 @@ class FlockBase(Node):
             twist.angular.z = twist_value
         return True
 
-    def transition(self, new_state):
-        if self._state == new_state:
-            return
-
-        self.get_logger().info('transition to %s' % new_state)
-        if self._state == self.States.MISSION and new_state != self.States.MISSION:
-            self._stop_mission_pub.publish(Empty())
-        if self._state != self.States.MISSION and new_state == self.States.MISSION:
-            self._start_mission_pub.publish((Empty()))
-        self._state = new_state
-
     def joy_callback(self, msg: Joy):
 
         # Left bumper button modifies the behavior of the other buttons
         # Left bumper button pressed
         if msg.buttons[self._joy_button_shift]:
-            if msg.buttons[self._joy_button_disarm]:
-                self.transition(self.States.DISARMED)
-            elif msg.buttons[self._joy_button_arm]:
-                self.transition(self.States.MANUAL)
-            elif msg.buttons[self._joy_button_start_mission]:
-                self.transition(self.States.MISSION)
+            if msg.buttons[self._joy_button_start_mission]:
+                self.start_priority_action(Actions.START_MISSION)
             elif msg.buttons[self._joy_button_stop_mission]:
-                self.transition(self.States.MANUAL)
-
-        # Ignore the joystick unless we're in States.MANUAL
-        if self._state != self.States.MANUAL:
-            return
+                self.start_priority_action(Actions.STOP_MISSION)
 
         # Left bumper button up
         if msg.buttons[self._joy_button_shift] == 0:
             if msg.buttons[self._joy_button_takeoff] != 0:
-                self._takeoff_pub.publish(Empty())
+                self.start_priority_action(Actions.TAKEOFF)
             elif msg.buttons[self._joy_button_land] != 0:
-                self._land_pub.publish(Empty())
+                self.start_priority_action(Actions.LAND)
 
-            if msg.buttons[self._joy_button_flip_forward] != 0:
-                self._flip_pub.publish(Flip(flip_command=Flip.FLIP_FORWARD))
-            elif msg.buttons[self._joy_button_flip_left] != 0:
-                self._flip_pub.publish(Flip(flip_command=Flip.FLIP_LEFT))
-            elif msg.buttons[self._joy_button_flip_right] != 0:
-                self._flip_pub.publish(Flip(flip_command=Flip.FLIP_RIGHT))
-            elif msg.buttons[self._joy_button_flip_back] != 0:
-                self._flip_pub.publish(Flip(flip_command=Flip.FLIP_BACK))
+        # Set self._twist if we're flying manually
+        if self._flight_state == FlightStates.FLY_MANUAL:
+            trim_lr_pressed = self.joy_axis_trim_process(msg, self._joy_axis_trim_lr, self._trim_targets_lr, self._twist)
+            trim_fb_pressed = self.joy_axis_trim_process(msg, self._joy_axis_trim_fb, self._trim_targets_fb, self._twist)
 
-        twist = Twist()
-
-        trim_lr_pressed = self.joy_axis_trim_process(msg, self._joy_axis_trim_lr, self._trim_targets_lr, twist)
-        trim_fb_pressed = self.joy_axis_trim_process(msg, self._joy_axis_trim_fb, self._trim_targets_fb, twist)
-
-        if not trim_lr_pressed and not trim_fb_pressed:
-            twist.linear.x = msg.axes[self._joy_axis_throttle]   # +x is forward, -x is back
-            twist.linear.y = msg.axes[self._joy_axis_strafe]     # +y is left, -y is right
-            twist.linear.z = msg.axes[self._joy_axis_vertical]   # +z is ascend, -z is descend
-            twist.angular.z = msg.axes[self._joy_axis_yaw]       # +yaw is ccw, -yaw is cw
-
-        self._cmd_vel_pub.publish(twist)
+            if not trim_lr_pressed and not trim_fb_pressed:
+                self._twist.linear.x = msg.axes[self._joy_axis_throttle]   # +x is forward, -x is back
+                self._twist.linear.y = msg.axes[self._joy_axis_strafe]     # +y is left, -y is right
+                self._twist.linear.z = msg.axes[self._joy_axis_vertical]   # +z is ascend, -z is descend
+                self._twist.angular.z = msg.axes[self._joy_axis_yaw]       # +yaw is ccw, -yaw is cw
 
 
 def main(args=None):
@@ -195,7 +313,9 @@ def main(args=None):
     node = FlockBase()
 
     try:
-        rclpy.spin(node)
+        while rclpy.ok():
+            node.spin_once()
+            rclpy.spin_once(node, timeout_sec=0.05)
     except KeyboardInterrupt:
         node.get_logger().info("Ctrl-C detected, shutting down")
     finally:

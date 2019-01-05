@@ -17,19 +17,16 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <build_depend>rosidl_interface_packages</build_depend>
-
-  <exec_depend>rosidl_default_runtime</exec_depend>
-
-  <member_of_group>rosidl_interface_packages</member_of_group>
-
   <depend>builtin_interfaces</depend>
   <depend>cv_bridge</depend>
+  <depend>Eigen3</depend>
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
+  <depend>rclcpp</depend>
   <depend>rclpy</depend>
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
+  <depend>tello_msgs</depend>
   <depend>visualization_msgs</depend>
 
   <export>
