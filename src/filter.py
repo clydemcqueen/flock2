@@ -68,6 +68,7 @@ class Filter(Node):
         self._tf_msg = TFMessage()
         self._tf_msg.transforms.append(TransformStamped())
         self._path_msg = Path()
+        self._path_msg.header.frame_id = 'odom'
 
     def _start_mission_callback(self, msg: Empty):
         self._path_msg.poses.clear()
