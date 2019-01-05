@@ -210,9 +210,8 @@ class FlockBase(Node):
         elif self._pr_mgr:
             self._pr_mgr.advance()
 
-        # If the drone is flying and isn't busy, send a cmd_vel message
-        if self._pr_mgr is None and (self._flight_state == FlightStates.FLY_MANUAL or
-                                     self._flight_state == FlightStates.FLY_MISSION):
+        # If we're flying manually and the drone isn't busy, send a cmd_vel message
+        if self._flight_state == FlightStates.FLY_MANUAL and self._pr_mgr is None:
             self._cmd_vel_pub.publish(self._twist)
 
     def tello_response_callback(self, msg: TelloResponse):
