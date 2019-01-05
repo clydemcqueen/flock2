@@ -11,7 +11,7 @@ from launch.actions import ExecuteProcess
 def generate_launch_description():
     urdf = os.path.join(get_package_share_directory('flock2'), 'urdf', 'tello.urdf')
     return LaunchDescription([
-        ExecuteProcess(cmd=['rviz2', '-d', 'src/flock2/launch/default.rviz'], output='screen'),
+        ExecuteProcess(cmd=['rviz2', '-d', 'install/flock2/share/flock2/launch/default.rviz'], output='screen'),
         Node(package='robot_state_publisher', node_executable='robot_state_publisher', output='screen', arguments=[urdf]),
         Node(package='joy', node_executable='joy_node', output='screen'),
         Node(package='flock2', node_executable='usb_camera', output='screen'),
