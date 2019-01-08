@@ -118,8 +118,7 @@ class FlockBase(Node):
         self._trim_speed = 0.2
 
         # Actions:
-        self._pr_mgr: ActionMgr = None
-        self._rc_mgr: ActionMgr = None
+        self._action_mgr: ActionMgr = None
         self._twist = Twist()
 
         # Flight state
@@ -169,7 +168,7 @@ class FlockBase(Node):
         """
         Starts an action. Can be called from a ROS callback: fast, doesn't block.
         """
-        if self._pr_mgr:
+        if self._action_mgr:
             self.get_logger().debug('busy, dropping {}'.format(action))
             return
 
@@ -182,40 +181,30 @@ class FlockBase(Node):
             self.internal_action(action)
         else:
             self.get_logger().info('initiating {}'.format(action))
-            self._pr_mgr = ActionMgr(self.get_logger(), self._tello_client, action, action.value)
+            self._action_mgr = ActionMgr(self.get_logger(), self._tello_client, action, action.value)
 
     def spin_once(self):
         """
         spin_once advances the action, and sends periodic messages.
         """
-        if self._rc_mgr:
-            self._rc_mgr.advance()
-        elif self._pr_mgr:
-            self._pr_mgr.advance()
+        if self._action_mgr:
+            self._action_mgr.advance()
 
         # If we're flying manually and the drone isn't busy, send a cmd_vel message
-        if self._flight_state == FlightStates.FLY_MANUAL and self._pr_mgr is None:
+        if self._flight_state == FlightStates.FLY_MANUAL and self._action_mgr is None:
             self._cmd_vel_pub.publish(self._twist)
 
     def tello_response_callback(self, msg: TelloResponse):
         """
         tello_response_callback completes the action.
         """
-        if self._rc_mgr:
-            self._rc_mgr.complete(msg)
-            if self._rc_mgr.state == ActionMgr.States.SUCCEEDED:
-                self.transition_state(self._rc_mgr.action_code)
-            elif self._rc_mgr.state == ActionMgr.States.FAILED_LOST_CONNECTION:
+        if self._action_mgr:
+            self._action_mgr.complete(msg)
+            if self._action_mgr.state == ActionMgr.States.SUCCEEDED:
+                self.transition_state(self._action_mgr.action_code)
+            elif self._action_mgr.state == ActionMgr.States.FAILED_LOST_CONNECTION:
                 self.transition_state(Actions.DISCONNECT)
-            self._rc_mgr = None
-
-        elif self._pr_mgr:
-            self._pr_mgr.complete(msg)
-            if self._pr_mgr.state == ActionMgr.States.SUCCEEDED:
-                self.transition_state(self._pr_mgr.action_code)
-            elif self._pr_mgr.state == ActionMgr.States.FAILED_LOST_CONNECTION:
-                self.transition_state(Actions.DISCONNECT)
-            self._pr_mgr = None
+            self._action_mgr = None
 
         else:
             self.get_logger().error("unexpected message on tello_response")
