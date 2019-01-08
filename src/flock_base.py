@@ -116,7 +116,6 @@ class FlockBase(Node):
         self.get_logger().set_level(LoggingSeverity.INFO)
 
         self._trim_speed = 0.2
-        left_handed = False
 
         # Actions:
         self._pr_mgr: ActionMgr = None
@@ -127,9 +126,9 @@ class FlockBase(Node):
         self._flight_state = FlightStates.UNKNOWN
 
         # Joystick assignments
-        self._joy_axis_throttle = _joy_axis_left_fb if left_handed else _joy_axis_right_fb
+        self._joy_axis_throttle = _joy_axis_right_fb
         self._joy_axis_strafe = _joy_axis_right_lr
-        self._joy_axis_vertical = _joy_axis_right_fb if left_handed else _joy_axis_left_fb
+        self._joy_axis_vertical = _joy_axis_left_fb
         self._joy_axis_yaw = _joy_axis_left_lr
         self._joy_button_takeoff = _joy_button_menu
         self._joy_button_land = _joy_button_view
@@ -140,34 +139,18 @@ class FlockBase(Node):
         self._joy_axis_trim_fb = _joy_axis_trim_fb
 
         # Trim axis commands
-        self._trim_targets_lr = \
-            {
-                (-1, False): (self.Axes.YAW, -1.0),
-                (1, False): (self.Axes.YAW, 1.0),
-                (-1, True): (self.Axes.STRAFE, -1.0),
-                (1, True): (self.Axes.STRAFE, 1.0),
-            } \
-            if left_handed else \
-            {
-                (-1, False): (self.Axes.STRAFE, -1.0),
-                (1, False): (self.Axes.STRAFE, 1.0),
-                (-1, True): (self.Axes.YAW, -1.0),
-                (1, True): (self.Axes.YAW, 1.0),
-            }
-        self._trim_targets_fb = \
-            {
-                (-1, False): (self.Axes.THROTTLE, -1.0),
-                (1, False): (self.Axes.THROTTLE, 1.0),
-                (-1, True): (self.Axes.VERTICAL, -1.0),
-                (1, True): (self.Axes.VERTICAL, 1.0),
-            } \
-            if left_handed else \
-            {
-                (-1, False): (self.Axes.THROTTLE, -1.0),
-                (1, False): (self.Axes.THROTTLE, 1.0),
-                (-1, True): (self.Axes.VERTICAL, -1.0),
-                (1, True): (self.Axes.VERTICAL, 1.0),
-            }
+        self._trim_targets_lr = {
+            (-1, False): (self.Axes.STRAFE, -1.0),
+            (1, False): (self.Axes.STRAFE, 1.0),
+            (-1, True): (self.Axes.YAW, -1.0),
+            (1, True): (self.Axes.YAW, 1.0),
+        }
+        self._trim_targets_fb = {
+            (-1, False): (self.Axes.THROTTLE, -1.0),
+            (1, False): (self.Axes.THROTTLE, 1.0),
+            (-1, True): (self.Axes.VERTICAL, -1.0),
+            (1, True): (self.Axes.VERTICAL, 1.0),
+        }
 
         # Publications
         self._start_mission_pub = self.create_publisher(Empty, 'start_mission')
