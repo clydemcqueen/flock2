@@ -31,7 +31,7 @@ _joy_button_left_bumper = 4     # Left bumper
 _joy_button_right_bumper = 5    # Right bumper
 _joy_button_view = 6            # View button
 _joy_button_menu = 7            # Menu button
-_joy_button_shift = 8           # XBox logo button
+_joy_button_logo = 8            # XBox logo button
 _joy_button_left_stick = 9      # Left stick button
 _joy_button_right_stick = 10    # Right stick button
 
@@ -165,9 +165,9 @@ class FlockBase(Node):
         # Services
         self._tello_client = self.create_client(TelloAction, 'tello_action')
 
-    def start_priority_action(self, action: Actions):
+    def start_action(self, action: Actions):
         """
-        Starts a priority action. Can be called from a ROS callback: fast, doesn't block.
+        Starts an action. Can be called from a ROS callback: fast, doesn't block.
         """
         if self._pr_mgr:
             self.get_logger().debug('busy, dropping {}'.format(action))
@@ -264,20 +264,14 @@ class FlockBase(Node):
 
     def joy_callback(self, msg: Joy):
 
-        # Left bumper button modifies the behavior of the other buttons
-        # Left bumper button pressed
-        if msg.buttons[self._joy_button_shift]:
-            if msg.buttons[self._joy_button_start_mission]:
-                self.start_priority_action(Actions.START_MISSION)
-            elif msg.buttons[self._joy_button_stop_mission]:
-                self.start_priority_action(Actions.STOP_MISSION)
-
-        # Left bumper button up
-        if msg.buttons[self._joy_button_shift] == 0:
-            if msg.buttons[self._joy_button_takeoff] != 0:
-                self.start_priority_action(Actions.TAKEOFF)
-            elif msg.buttons[self._joy_button_land] != 0:
-                self.start_priority_action(Actions.LAND)
+        if msg.buttons[self._joy_button_takeoff] != 0:
+            self.start_action(Actions.TAKEOFF)
+        elif msg.buttons[self._joy_button_land] != 0:
+            self.start_action(Actions.LAND)
+        elif msg.buttons[self._joy_button_start_mission]:
+            self.start_action(Actions.START_MISSION)
+        elif msg.buttons[self._joy_button_stop_mission]:
+            self.start_action(Actions.STOP_MISSION)
 
         # Set self._twist if we're flying manually
         if self._flight_state == FlightStates.FLY_MANUAL:
