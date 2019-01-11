@@ -91,7 +91,7 @@ class Filter(Node):
         self._path_msg = Path()
         self._path_msg.header.frame_id = 'map'
 
-        # Tbc transform
+        # Pose of base_link in the camera frame
         self._t_camera_base = xf.inverse_matrix(pose_to_matrix(Pose(
             position=Point(x=0.035, y=0., z=0.),
             orientation=Quaternion(x=-0.5, y=0.5, z=-0.5, w=0.5))))
