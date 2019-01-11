@@ -85,7 +85,7 @@ class Filter(Node):
 
         self.create_subscription(Empty, 'start_mission', self._start_mission_callback)
         self.create_subscription(Empty, 'stop_mission', self._stop_mission_callback)
-        self.create_subscription(PoseStamped, 'camera_pose', self._camera_pose_callback)  # TODO PoseWithCovarianceStamped
+        self.create_subscription(PoseWithCovarianceStamped, 'camera_pose', self._camera_pose_callback)
 
         self._filtered_odom_pub = self.create_publisher(Odometry, self.FILTERED_ODOM_TOPIC)
         self._path_pub = self.create_publisher(Path, self.ESTIMATED_PATH_TOPIC)
@@ -112,7 +112,7 @@ class Filter(Node):
     def _stop_mission_callback(self, msg: Empty):
         self._mission_active = False
 
-    def _camera_pose_callback(self, msg: PoseStamped):  # PoseWithCovarianceStamped
+    def _camera_pose_callback(self, msg: PoseWithCovarianceStamped):
         if not self._last_msg_time:
             self._last_msg_time = msg.header.stamp
             return
@@ -152,66 +152,57 @@ class Filter(Node):
         # Get drone pose
         # Camera pose is Tco, drone pose is Tbo
         # Tbo = Tco * Tbc
-        Tco = pose_to_matrix(msg.pose)
+        Tco = pose_to_matrix(msg.pose.pose)
         Tbo = Tco.dot(self._Tbc)
         drone_pose = matrix_to_pose(Tbo)
+
+        p = drone_pose.position
+        q = drone_pose.orientation
+        e = xf.euler_from_quaternion([q.w, q.x, q.y, q.z])
+        z = np.array([[p.x, p.y, p.z, e[0], e[1], e[2]]]).T
+        R = np.array(msg.pose.covariance).reshape((self.MEASUREMENT_DIM, self.MEASUREMENT_DIM))
+
+        x, P = self._filter.update(z, R)
+
+        self._filtered_odom_msg.header = msg.header
+        self._filtered_odom_msg.child_frame_id = 'base_link'
+        self._filtered_odom_msg.pose.pose.position.x = x[0, 0]
+        self._filtered_odom_msg.pose.pose.position.y = x[1, 0]
+        self._filtered_odom_msg.pose.pose.position.z = x[2, 0]
+        q = xf.quaternion_from_euler(ai=x[3, 0], aj=x[4, 0], ak=x[5, 0])
+        self._filtered_odom_msg.pose.pose.orientation.x = q[1]
+        self._filtered_odom_msg.pose.pose.orientation.y = q[2]
+        self._filtered_odom_msg.pose.pose.orientation.z = q[3]
+        self._filtered_odom_msg.pose.pose.orientation.w = q[0]
+        self._filtered_odom_msg.pose.covariance = P[0:6, 0:6].flatten().tolist()
+        self._filtered_odom_msg.twist.twist.linear.x = x[6, 0]
+        self._filtered_odom_msg.twist.twist.linear.y = x[7, 0]
+        self._filtered_odom_msg.twist.twist.linear.z = x[8, 0]
+        self._filtered_odom_msg.twist.twist.angular.x = x[9, 0]
+        self._filtered_odom_msg.twist.twist.angular.y = x[10, 0]
+        self._filtered_odom_msg.twist.twist.angular.z = x[11, 0]
+        self._filtered_odom_msg.twist.covariance = P[6:12, 6:12].flatten().tolist()
+
+        # Publish filtered_odom with both pose and twist
+        if self.count_subscribers(self.FILTERED_ODOM_TOPIC) > 0:
+            self._filtered_odom_pub.publish(self._filtered_odom_msg)
+
+        # Publish path
+        if self._mission_active and self.count_subscribers(self.ESTIMATED_PATH_TOPIC) > 0:
+            pose_stamped = PoseStamped()
+            pose_stamped.header.frame_id = 'base_link'
+            pose_stamped.header.stamp = msg.header.stamp
+            util.copy_pose_to_pose(self._filtered_odom_msg.pose.pose, pose_stamped.pose)
+            self._path_msg.poses.append(pose_stamped)
+            self._path_msg.header.stamp = msg.header.stamp
+            self._path_pub.publish(self._path_msg)
 
         # Publish tf
         if self.count_subscribers(self.TF_TOPIC) > 0:
             self._tf_msg.transforms[0].header = msg.header
             self._tf_msg.transforms[0].child_frame_id = 'base_link'
-            util.copy_pose_to_transform(drone_pose, self._tf_msg.transforms[0].transform)
+            util.copy_pose_to_transform(self._filtered_odom_msg.pose.pose, self._tf_msg.transforms[0].transform)
             self._tf_pub.publish(self._tf_msg)
-
-        # TODO re-enable this when we get covariance
-
-        # p = drone_pose.position
-        # q = drone_pose.orientation
-        # e = xf.euler_from_quaternion([q.w, q.x, q.y, q.z])
-        # z = np.array([[p.x, p.y, p.z, e[0], e[1], e[2]]]).T
-        # R = np.array(msg.pose.covariance).reshape((self.MEASUREMENT_DIM, self.MEASUREMENT_DIM))
-        #
-        # x, P = self._filter.update(z, R)
-        #
-        # self._filtered_odom_msg.header = msg.header
-        # self._filtered_odom_msg.child_frame_id = 'base_link'
-        # self._filtered_odom_msg.pose.pose.position.x = x[0, 0]
-        # self._filtered_odom_msg.pose.pose.position.y = x[1, 0]
-        # self._filtered_odom_msg.pose.pose.position.z = x[2, 0]
-        # q = xf.quaternion_from_euler(ai=x[3, 0], aj=x[4, 0], ak=x[5, 0])
-        # self._filtered_odom_msg.pose.pose.orientation.x = q[1]
-        # self._filtered_odom_msg.pose.pose.orientation.y = q[2]
-        # self._filtered_odom_msg.pose.pose.orientation.z = q[3]
-        # self._filtered_odom_msg.pose.pose.orientation.w = q[0]
-        # self._filtered_odom_msg.pose.covariance = P[0:6, 0:6].flatten().tolist()
-        # self._filtered_odom_msg.twist.twist.linear.x = x[6, 0]
-        # self._filtered_odom_msg.twist.twist.linear.y = x[7, 0]
-        # self._filtered_odom_msg.twist.twist.linear.z = x[8, 0]
-        # self._filtered_odom_msg.twist.twist.angular.x = x[9, 0]
-        # self._filtered_odom_msg.twist.twist.angular.y = x[10, 0]
-        # self._filtered_odom_msg.twist.twist.angular.z = x[11, 0]
-        # self._filtered_odom_msg.twist.covariance = P[6:12, 6:12].flatten().tolist()
-        #
-        # # Publish filtered_odom with both pose and twist
-        # if self.count_subscribers(self.FILTERED_ODOM_TOPIC) > 0:
-        #     self._filtered_odom_pub.publish(self._filtered_odom_msg)
-        #
-        # # Publish path
-        # if self._mission_active and self.count_subscribers(self.ESTIMATED_PATH_TOPIC) > 0:
-        #     pose_stamped = PoseStamped()
-        #     pose_stamped.header.frame_id = 'base_link'
-        #     pose_stamped.header.stamp = msg.header.stamp
-        #     util.copy_pose_to_pose(self._filtered_odom_msg.pose.pose, pose_stamped.pose)
-        #     self._path_msg.poses.append(pose_stamped)
-        #     self._path_msg.header.stamp = msg.header.stamp
-        #     self._path_pub.publish(self._path_msg)
-        #
-        # # Publish tf
-        # if self.count_subscribers(self.TF_TOPIC) > 0:
-        #     self._tf_msg.transforms[0].header = msg.header
-        #     self._tf_msg.transforms[0].child_frame_id = 'base_link'
-        #     util.copy_pose_to_transform(self._filtered_odom_msg.pose.pose, self._tf_msg.transforms[0].transform)
-        #     self._tf_pub.publish(self._tf_msg)
 
 
 def main(args=None):
