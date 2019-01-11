@@ -1,7 +1,15 @@
 # `flock2`
 
 `flock2` can fly a swarm of [DJI Tello](https://store.dji.com/product/tello) drones.
-`flock2` is built on top of [ROS2](https://index.ros.org/doc/ros2/) and [tello_ros](https://github.com/clydemcqueen/tello_ros).
+`flock2` is built on top of [ROS2](https://index.ros.org/doc/ros2/),
+ [flock_vlam](https://github.com/ptrmu/flock_vlam)
+ and [tello_ros](https://github.com/clydemcqueen/tello_ros).
+
+## TF Tree
+
+* `map` is the world frame
+* `base_link` is the Tello
+* `camera_frame` is the front-facing camera on the Tello
 
 ## Nodes
 
@@ -30,7 +38,7 @@ Manages flight states and drone actions.
 Uses a Kalman filter to estimate pose and velocity.
 The estimate is published on the `filtered_odom` topic.
 
-Publishes a transform from `odom` to `base_link`.
+Publishes a transform from `map` to `base_link`.
 
 Publishes the estimated path during a mission.
 
@@ -38,7 +46,7 @@ Publishes the estimated path during a mission.
 
 * `~start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
 * `~stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
-* `~odom` [nav_msgs/Odometry](http://docs.ros.org/api/nav_msgs/html/msg/Odometry.html)
+* `~camera_pose` [geometry_msgs/PoseWithCovarianceStamped](http://docs.ros.org/api/geometry_msgs/html/msg/PoseWithCovarianceStamped.html)
 
 #### Published topics
 
@@ -88,14 +96,15 @@ Install these additional packages:
 sudo apt install ros-crystal-joystick-drivers ros-crystal-cv-bridge
 ~~~
 
-### 4. Install tello_ros and flock2
+### 4. Install flock2, flock_vlam and tello_ros
 
-Download, compile and install tello_ros and flock2:
+Download, compile and install the flock packages:
 ~~~
 mkdir -p ~/flock2_ws/src
 cd ~/flock2_ws/src
-git clone https://github.com/clydemcqueen/tello_ros.git
 git clone https://github.com/clydemcqueen/flock2.git
+git clone https://github.com/ptrmu/flock_vlam.git
+git clone https://github.com/clydemcqueen/tello_ros.git
 cd ..
 source /opt/ros/crystal/setup.bash
 colcon build --event-handlers console_direct+
@@ -105,13 +114,12 @@ colcon build --event-handlers console_direct+
 
 ### Teleop
 
-This ROS launch file will allow you to fly the drone using a wired XBox One gamepad.
+`teleop_launch.py` will allow you to fly the drone using a wired XBox One gamepad.
 
 Turn on the drone, connect to `TELLO-XXXXX` via wi-fi, and launch ROS:
 ~~~
 source /opt/ros/crystal/setup.bash
 source ~/flock2_ws/install/setup.bash
-export PYTHONOPTIMIZE=0
 ros2 launch flock2 teleop_launch.py
 ~~~
 

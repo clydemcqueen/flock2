@@ -373,7 +373,7 @@ class FlockSimplePath(Node):
         """Publish a list of waypoints as a ROS path"""
         path = Path()
         path.header.stamp = now()
-        path.header.frame_id = 'odom'
+        path.header.frame_id = 'map'
         for waypoint in waypoints:
             pose = PoseStamped()
             pose.header.frame_id = 'base_link'
@@ -407,7 +407,7 @@ class FlockSimplePath(Node):
         if self._state == self.States.RUNNING:
             # only process tf messages for the drone position
             for transform in msg.transforms:  # type: TransformStamped
-                if transform.header.frame_id == 'odom' and transform.child_frame_id == 'base_link':
+                if transform.header.frame_id == 'map' and transform.child_frame_id == 'base_link':
                     xlat = transform.transform.translation
                     quat = transform.transform.rotation
                     _, _, yaw = xf.euler_from_quaternion([quat.w, quat.x, quat.y, quat.z])
