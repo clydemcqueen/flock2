@@ -13,19 +13,12 @@ import transformations as xf
 import kf
 import util
 
-
 # Transformation notation:
-# Tst === T_source_target
-# vector_target = T_source_target * vector_source
-# For 3 coordinate frames a, b, c, Tca = Tba * Tcb
-
-# Coordinate frame notation:
-# w = world (map -- but avoid m because it collides with m=marker in the old notion)
-# b = base_link
-# c = camera
-# m = marker
-
-# TODO update notation to match flock_vlam, I think it's flipped?
+#   t_destination_source is a transform
+#   vector_destination = t_destination_source * vector_source
+#   xxx_f_destination means xxx is expressed in destination frame
+#   xxx_pose_f_destination is equivalent to t_destination_xxx
+#   t_a_c = t_a_b * t_b_c
 
 
 def pose_to_matrix(p: Pose) -> np.ndarray:
@@ -99,17 +92,17 @@ class Filter(Node):
         self._path_msg.header.frame_id = 'map'
 
         # Tbc transform
-        self._Tbc = xf.inverse_matrix(pose_to_matrix(Pose(
+        self._t_camera_base = xf.inverse_matrix(pose_to_matrix(Pose(
             position=Point(x=0.035, y=0., z=0.),
             orientation=Quaternion(x=-0.5, y=0.5, z=-0.5, w=0.5))))
 
         self.get_logger().info('filter.py ready')
 
-    def _start_mission_callback(self, msg: Empty):
+    def _start_mission_callback(self, _msg: Empty):
         self._path_msg.poses.clear()
         self._mission_active = True
 
-    def _stop_mission_callback(self, msg: Empty):
+    def _stop_mission_callback(self, _msg: Empty):
         self._mission_active = False
 
     def _camera_pose_callback(self, msg: PoseWithCovarianceStamped):
@@ -150,14 +143,12 @@ class Filter(Node):
         self._filter.predict()
 
         # Get drone pose
-        # Camera pose is Tco, drone pose is Tbo
-        # Tbo = Tco * Tbc
-        Tco = pose_to_matrix(msg.pose.pose)
-        Tbo = Tco.dot(self._Tbc)
-        drone_pose = matrix_to_pose(Tbo)
+        t_map_camera = pose_to_matrix(msg.pose.pose)
+        t_map_base = t_map_camera.dot(self._t_camera_base)
+        drone_pose_f_map = matrix_to_pose(t_map_base)
 
-        p = drone_pose.position
-        q = drone_pose.orientation
+        p = drone_pose_f_map.position
+        q = drone_pose_f_map.orientation
         e = xf.euler_from_quaternion([q.w, q.x, q.y, q.z])
         z = np.array([[p.x, p.y, p.z, e[0], e[1], e[2]]]).T
         R = np.array(msg.pose.covariance).reshape((self.MEASUREMENT_DIM, self.MEASUREMENT_DIM))
