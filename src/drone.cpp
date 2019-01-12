@@ -4,14 +4,14 @@
 
 namespace flock_base {
 
-std::map<State, std::string> g_state_strs{
+std::map<State, const char *> g_states{
   {State::unknown, "unknown"},
   {State::landed, "landed"},
   {State::fly_manual, "fly_manual"},
   {State::fly_mission, "fly_mission"},
 };
 
-std::map<Action, std::string> g_action_strs{
+std::map<Action, const char *> g_actions{
   {Action::takeoff, "takeoff"},
   {Action::land, "land"},
   {Action::start_mission, "start_mission"},
@@ -61,39 +61,43 @@ bool valid_transition(const State state, const Action action, State &next_state,
   return false;
 }
 
-Drone::Drone(FlockBase *node) : node_{node}
+Drone::Drone(FlockBase *node, std::string ns) : node_{node}, ns_{ns}
 {
-  action_mgr_ = std::make_unique<ActionMgr>(node_->get_logger(),
-    node_->create_client<tello_msgs::srv::TelloAction>("tello_action"));
+  std::string pre = ns_.empty() ? "" : ns_ + "/";
 
-  start_mission_pub_ = node_->create_publisher<std_msgs::msg::Empty>("start_mission", 1);
-  stop_mission_pub_ = node_->create_publisher<std_msgs::msg::Empty>("stop_mission", 1);
-  cmd_vel_pub_ = node_->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 1);
+  action_mgr_ = std::make_unique<ActionMgr>(ns_, node_->get_logger(),
+    node_->create_client<tello_msgs::srv::TelloAction>(pre + "tello_action"));
+
+  start_mission_pub_ = node_->create_publisher<std_msgs::msg::Empty>(pre + "start_mission", 1);
+  stop_mission_pub_ = node_->create_publisher<std_msgs::msg::Empty>(pre + "stop_mission", 1);
+  cmd_vel_pub_ = node_->create_publisher<geometry_msgs::msg::Twist>(pre + "cmd_vel", 1);
 
   auto tello_response_cb = std::bind(&Drone::tello_response_callback, this, std::placeholders::_1);
-  tello_response_sub_ = node_->create_subscription<tello_msgs::msg::TelloResponse>("tello_response", tello_response_cb);
+  tello_response_sub_ = node_->create_subscription<tello_msgs::msg::TelloResponse>(pre + "tello_response", tello_response_cb);
 
   auto flight_data_cb = std::bind(&Drone::flight_data_callback, this, std::placeholders::_1);
-  flight_data_sub_ = node_->create_subscription<tello_msgs::msg::FlightData>("flight_data", flight_data_cb);
+  flight_data_sub_ = node_->create_subscription<tello_msgs::msg::FlightData>(pre + "flight_data", flight_data_cb);
+
+  RCLCPP_INFO(node_->get_logger(), "drone %s ready", ns_.c_str());
 }
 
 void Drone::start_action(Action action)
 {
   if (action_mgr_->busy()) {
-    RCLCPP_DEBUG(node_->get_logger(), "busy, dropping %s", g_action_strs[action].c_str());
+    RCLCPP_DEBUG(node_->get_logger(), "%s: busy, dropping %s", ns_.c_str(), g_actions[action]);
     return;
   }
 
   State next_state;
   bool send_to_drone;
   if (!valid_transition(state_, action, next_state, send_to_drone)) {
-    RCLCPP_DEBUG(node_->get_logger(), "%s not allowed in %s", g_action_strs[action].c_str(), g_state_strs[state_].c_str());
+    RCLCPP_DEBUG(node_->get_logger(), "%s: %s not allowed in %s", ns_.c_str(), g_actions[action], g_states[state_]);
     return;
   }
 
   if (send_to_drone) {
-    RCLCPP_INFO(node_->get_logger(), "initiating %s", g_action_strs[action].c_str());
-    action_mgr_->send(action, g_action_strs[action]);
+    RCLCPP_INFO(node_->get_logger(), "%s: initiating %s", ns_.c_str(), g_actions[action]);
+    action_mgr_->send(action, g_actions[action]);
 
   } else {
     if (action == Action::start_mission) {
@@ -111,11 +115,11 @@ void Drone::transition_state(Action action)
   State next_state;
   bool send_to_drone;
   if (!valid_transition(state_, action, next_state, send_to_drone)) {
-    RCLCPP_DEBUG(node_->get_logger(), "%s not allowed in %s", g_action_strs[action].c_str(), g_state_strs[state_].c_str());
+    RCLCPP_DEBUG(node_->get_logger(), "%s: %s not allowed in %s", ns_.c_str(), g_actions[action], g_states[state_]);
     return;
   }
 
-  RCLCPP_INFO(node_->get_logger(), "transition to %s", g_state_strs[next_state].c_str());
+  RCLCPP_INFO(node_->get_logger(), "%s: transition to %s", ns_.c_str(), g_states[next_state]);
   state_ = next_state;
 }
 
@@ -134,8 +138,26 @@ void Drone::flight_data_callback(tello_msgs::msg::FlightData::SharedPtr msg)
   (void)msg;
 
   if (state_ == State::unknown) {
-    RCLCPP_INFO(node_->get_logger(), "receiving flight data");
+    RCLCPP_INFO(node_->get_logger(), "%s: receiving flight data", ns_.c_str());
     transition_state(Action::connect);
+  }
+}
+
+void Drone::set_velocity(double throttle, double strafe, double vertical, double yaw)
+{
+  twist_.linear.x = throttle;
+  twist_.linear.y = strafe;
+  twist_.linear.z = vertical;
+  twist_.angular.z = yaw;
+}
+
+void Drone::spin_once()
+{
+  action_mgr_->spin_once();
+
+  // If we're flying manually and the drone isn't busy, send a cmd_vel message
+  if (state_ == State::fly_manual && !action_mgr_->busy()) {
+    cmd_vel_pub_->publish(twist_);
   }
 }
 

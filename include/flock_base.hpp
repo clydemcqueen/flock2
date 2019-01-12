@@ -30,9 +30,13 @@ const int JOY_BUTTON_RIGHT_STICK = 10;    // Right stick button
 
 class FlockBase : public rclcpp::Node
 {
-  double trim_speed_ = 0.2;  // TODO trim
+  // Our drones
+  std::vector<std::shared_ptr<Drone>> drones_;
 
-  Drone drone_{this};
+  // Users can use the joystick to manually control one drone at a time
+  int manual_control_{0};
+
+  double trim_speed_{0.2};  // TODO trim
 
   // Joystick assignments
   int joy_axis_throttle_ = JOY_AXIS_RIGHT_FB;
@@ -44,10 +48,9 @@ class FlockBase : public rclcpp::Node
   int joy_button_shift_ = JOY_BUTTON_LEFT_BUMPER;
   int joy_button_stop_mission_ = JOY_BUTTON_A;
   int joy_button_start_mission_ = JOY_BUTTON_B;
+  int joy_button_next_drone_ = JOY_BUTTON_RIGHT_BUMPER;
   int joy_axis_trim_lr_ = JOY_AXIS_TRIM_LR;
   int joy_axis_trim_fb_ = JOY_AXIS_TRIM_FB;
-
-  // TODO trim
 
   // Subscriptions
   rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_sub_;

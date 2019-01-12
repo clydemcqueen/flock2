@@ -38,6 +38,7 @@ public:
 private:
 
   // Init by constructor
+  std::string ns_;
   rclcpp::Logger logger_;
   rclcpp::Client<tello_msgs::srv::TelloAction>::SharedPtr client_;
   State state_ = State::not_sent;
@@ -50,8 +51,8 @@ private:
 
 public:
 
-  explicit ActionMgr(rclcpp::Logger logger, rclcpp::Client<tello_msgs::srv::TelloAction>::SharedPtr client):
-  logger_{logger}, client_{client}
+  explicit ActionMgr(std::string ns, rclcpp::Logger logger, rclcpp::Client<tello_msgs::srv::TelloAction>::SharedPtr client):
+  ns_{ns}, logger_{logger}, client_{client}
   {}
 
   ~ActionMgr()

@@ -2,43 +2,67 @@
 
 namespace flock_base {
 
-
-
 FlockBase::FlockBase() : Node{"flock_base"}
 {
-  // TODO trim
+  // Create the drone(s)
+  std::vector<std::string> drone_namespaces;
+  if (get_parameter("drones", drone_namespaces)) {
+    for (auto i = drone_namespaces.begin(); i != drone_namespaces.end(); i++) {
+      drones_.push_back(std::make_shared<Drone>(this, *i));
+    }
+    RCLCPP_INFO(get_logger(), "%d drones, joystick controls %s",
+      drone_namespaces.size(), drones_[manual_control_]->ns().c_str());
+  } else {
+    drones_.push_back(std::make_shared<Drone>(this));
+  }
 
   auto joy_cb = std::bind(&FlockBase::joy_callback, this, std::placeholders::_1);
   joy_sub_ = create_subscription<sensor_msgs::msg::Joy>("joy", joy_cb);
 }
 
+inline bool button_down(const sensor_msgs::msg::Joy::SharedPtr curr, const sensor_msgs::msg::Joy &prev, int index)
+{
+  return curr->buttons[index] && !prev.buttons[index];
+}
+
 void FlockBase::joy_callback(sensor_msgs::msg::Joy::SharedPtr msg)
 {
-  if (msg->buttons[joy_button_takeoff_]) {
-    drone_.start_action(Action::takeoff);
-  } else if (msg->buttons[joy_button_land_]) {
-    drone_.start_action(Action::land);
-  } else if (msg->buttons[joy_button_start_mission_]) {
-    drone_.start_action(Action::start_mission);
-  } else if (msg->buttons[joy_button_stop_mission_]) {
-    drone_.start_action(Action::stop_mission);
+  static sensor_msgs::msg::Joy prev_msg;
+
+  if (button_down(msg, prev_msg, joy_button_next_drone_)) {
+    if (drones_.size() < 2) {
+      RCLCPP_WARN(get_logger(), "there's only 1 drone");
+    } else {
+      if (++manual_control_ >= drones_.size()) {
+        manual_control_ = 0;
+      }
+      RCLCPP_INFO(get_logger(), "joystick controls %s", drones_[manual_control_]->ns().c_str());
+    }
+  } else if (button_down(msg, prev_msg, joy_button_takeoff_)) {
+    drones_[manual_control_]->start_action(Action::takeoff);
+  } else if (button_down(msg, prev_msg, joy_button_land_)) {
+    drones_[manual_control_]->start_action(Action::land);
+  } else if (button_down(msg, prev_msg, joy_button_start_mission_)) {
+    drones_[manual_control_]->start_action(Action::start_mission);
+  } else if (button_down(msg, prev_msg, joy_button_stop_mission_)) {
+    drones_[manual_control_]->start_action(Action::stop_mission);
   }
+
+  prev_msg = *msg;
 
   // TODO trim
 
-  drone_.twist_.linear.x = msg->axes[joy_axis_throttle_];
-  drone_.twist_.linear.y = msg->axes[joy_axis_strafe_];
-  drone_.twist_.linear.z = msg->axes[joy_axis_vertical_];
-  drone_.twist_.angular.z = msg->axes[joy_axis_yaw_];
+  drones_[manual_control_]->set_velocity(
+    msg->axes[joy_axis_throttle_],
+    msg->axes[joy_axis_strafe_],
+    msg->axes[joy_axis_vertical_],
+    msg->axes[joy_axis_yaw_]);
 }
 
 void FlockBase::spin_once()
 {
-  drone_.action_mgr_->spin_once();
-
-  // If we're flying manually and the drone isn't busy, send a cmd_vel message
-  if (drone_.state_ == State::fly_manual && !drone_.action_mgr_->busy()) {
-    drone_.cmd_vel_pub_->publish(drone_.twist_);
+  for (auto i = drones_.begin(); i != drones_.end(); i++) {
+    (*i)->spin_once();
   }
 }
 
@@ -54,7 +78,7 @@ int main(int argc, char **argv)
 
   // Create node
   auto node = std::make_shared<flock_base::FlockBase>();
-  auto result = rcutils_logging_set_logger_level(node->get_logger().get_name(), RCUTILS_LOG_SEVERITY_DEBUG);
+  auto result = rcutils_logging_set_logger_level(node->get_logger().get_name(), RCUTILS_LOG_SEVERITY_INFO);
 
   rclcpp::Rate r(20);
   while (rclcpp::ok())
@@ -68,9 +92,6 @@ int main(int argc, char **argv)
     // Wait
     r.sleep();
   }
-
-  // Spin until rclcpp::ok() returns false
-  rclcpp::spin(node);
 
   // Shut down ROS
   rclcpp::shutdown();

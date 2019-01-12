@@ -32,17 +32,20 @@ class FlockBase;
 
 class Drone
 {
-public:  // TODO
-
-  // Node
+  // ROS node, for logging, setting up pubs and subs, etc.
   FlockBase *node_;
 
-  // Actions
-  std::unique_ptr<ActionMgr> action_mgr_;
-  geometry_msgs::msg::Twist twist_;
+  // ROS topic namespace for this drone
+  std::string ns_;
 
   // Flight state
   State state_ = State::unknown;
+
+  // Drone action manager
+  std::unique_ptr<ActionMgr> action_mgr_;
+
+  // Target velocity
+  geometry_msgs::msg::Twist twist_;
 
   // Publications
   rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr start_mission_pub_;
@@ -53,11 +56,22 @@ public:  // TODO
   rclcpp::Subscription<tello_msgs::msg::TelloResponse>::SharedPtr tello_response_sub_;
   rclcpp::Subscription<tello_msgs::msg::FlightData>::SharedPtr flight_data_sub_;
 
-  explicit Drone(FlockBase *node);
+public:
+
+  explicit Drone(FlockBase *node, std::string ns);
+  explicit Drone(FlockBase *node) : Drone(node, "") {}
   ~Drone() {}
+
+  std::string ns() { return ns_; }
 
   // Start an action. Can be called from a ROS callback: fast, doesn't block.
   void start_action(Action action);
+
+  void set_velocity(double throttle, double strafe, double vertical, double yaw);
+
+  void spin_once();
+
+private:
 
   // Transition to a new state.
   void transition_state(Action action);
