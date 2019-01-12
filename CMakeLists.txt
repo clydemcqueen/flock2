@@ -68,7 +68,7 @@ include_directories(
 # Flock base node
 #=============
 
-add_executable(flock_base src/flock_base.cpp src/action_mgr.cpp)
+add_executable(flock_base src/flock_base.cpp src/action_mgr.cpp src/drone.cpp)
 
 ament_target_dependencies(
   flock_base
