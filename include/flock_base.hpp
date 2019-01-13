@@ -36,8 +36,6 @@ class FlockBase : public rclcpp::Node
   // Users can use the joystick to manually control one drone at a time
   int manual_control_{0};
 
-  double trim_speed_{0.2};  // TODO trim
-
   // Joystick assignments
   int joy_axis_throttle_ = JOY_AXIS_RIGHT_FB;
   int joy_axis_strafe_ = JOY_AXIS_RIGHT_LR;

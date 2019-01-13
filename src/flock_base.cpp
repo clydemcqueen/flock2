@@ -50,13 +50,33 @@ void FlockBase::joy_callback(sensor_msgs::msg::Joy::SharedPtr msg)
 
   prev_msg = *msg;
 
-  // TODO trim
+  // Trim (slow, steady) mode vs. joystick mode
+  if (msg->axes[joy_axis_trim_lr_] || msg->axes[joy_axis_trim_fb_]) {
+    const static double TRIM_SPEED{0.2};
+    double throttle{0}, strafe{0}, vertical{0}, yaw{0};
+    if (msg->axes[joy_axis_trim_lr_]) {
+      if (msg->buttons[joy_button_shift_]) {
+        yaw = TRIM_SPEED * msg->axes[joy_axis_trim_lr_];
+      } else {
+        strafe = TRIM_SPEED * msg->axes[joy_axis_trim_lr_];
+      }
+    }
+    if (msg->axes[joy_axis_trim_fb_]) {
+      if (msg->buttons[joy_button_shift_]) {
+        throttle = TRIM_SPEED * msg->axes[joy_axis_trim_fb_];
+      } else {
+        vertical = TRIM_SPEED * msg->axes[joy_axis_trim_fb_];
+      }
+    }
+    drones_[manual_control_]->set_velocity(throttle, strafe, vertical, yaw);
 
-  drones_[manual_control_]->set_velocity(
-    msg->axes[joy_axis_throttle_],
-    msg->axes[joy_axis_strafe_],
-    msg->axes[joy_axis_vertical_],
-    msg->axes[joy_axis_yaw_]);
+  } else {
+    drones_[manual_control_]->set_velocity(
+      msg->axes[joy_axis_throttle_],
+      msg->axes[joy_axis_strafe_],
+      msg->axes[joy_axis_vertical_],
+      msg->axes[joy_axis_yaw_]);
+  }
 }
 
 void FlockBase::spin_once()
