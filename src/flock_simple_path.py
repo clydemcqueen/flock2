@@ -350,6 +350,10 @@ class FlockSimplePath(Node):
         self._flyer = flyer
         flyer.set_callback_node(self)
 
+        # Parameters
+        self._map_frame = self.get_parameter_or('base_frame', 'base_link')
+        self._base_frame = self.get_parameter_or('map_frame', 'map')
+
         self._state = self.States.INIT
 
         # ROS publishers
@@ -369,14 +373,20 @@ class FlockSimplePath(Node):
 
         self.get_logger().info('init complete')
 
+    def get_parameter_or(self, name, default):
+        value = self.get_parameter(name).value
+        if value is None:
+            value = default
+        return value
+
     def publish_path(self, waypoints):
         """Publish a list of waypoints as a ROS path"""
         path = Path()
         path.header.stamp = now()
-        path.header.frame_id = 'map'
+        path.header.frame_id = self._map_frame
         for waypoint in waypoints:
             pose = PoseStamped()
-            pose.header.frame_id = 'base_link'
+            pose.header.frame_id = self._base_frame
             pose.header.stamp = now()     # TODO publish planned time
             pose.pose.position.x = waypoint[1]
             pose.pose.position.y = waypoint[2]
@@ -407,7 +417,7 @@ class FlockSimplePath(Node):
         if self._state == self.States.RUNNING:
             # only process tf messages for the drone position
             for transform in msg.transforms:  # type: TransformStamped
-                if transform.header.frame_id == 'map' and transform.child_frame_id == 'base_link':
+                if transform.header.frame_id == self._map_frame and transform.child_frame_id == self._base_frame:
                     xlat = transform.transform.translation
                     quat = transform.transform.rotation
                     _, _, yaw = xf.euler_from_quaternion([quat.w, quat.x, quat.y, quat.z])
