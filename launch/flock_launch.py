@@ -7,7 +7,6 @@ from launch.actions import ExecuteProcess
 
 # Launch a flock of drones
 
-# TODO need UDP forwarding
 # TODO use xacro or something similar to modify urdf files on-the-fly
 
 
@@ -19,17 +18,17 @@ def generate_launch_description():
     dr2_ns = 'drone2'
 
     dr1_params = [{
-        'drone_ip': '192.168.10.1',
-        'drone_port': '8889',
-        'command_port': '38065',
-        'data_port': '8890',
-        'video_port': '11111'
+        'drone_ip': '192.168.86.206',
+        'command_port': '11001',
+        'drone_port': '12001',
+        'data_port': '13001',
+        'video_port': '14001'
     }]
 
     dr2_params = [{
-        'drone_ip': '127.0.0.1',
-        'drone_port': '11002',
-        'command_port': '12002',
+        'drone_ip': '192.168.86.212',
+        'command_port': '11002',
+        'drone_port': '12002',
         'data_port': '13002',
         'video_port': '14002'
     }]
