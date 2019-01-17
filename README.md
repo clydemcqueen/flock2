@@ -15,30 +15,34 @@
 
 ### flock_base
 
-Manages flight states and drone actions.
+Controls a flock of Tello drones.
 
 #### Subscribed topics
 
 * `~joy` [sensor_msgs/Joy](http://docs.ros.org/api/sensor_msgs/html/msg/Joy.html)
-* `~tello_response` tello_msgs/TelloResponse
-* `~flight_data` tello_msgs/FlightData
+* `~[prefix/]tello_response` tello_msgs/TelloResponse
+* `~[prefix/]flight_data` tello_msgs/FlightData
 
 #### Published topics
 
-* `~cmd_vel` [geometry_msgs/Twist](http://docs.ros.org/api/geometry_msgs/html/msg/Twist.html)
-* `~start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
-* `~stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `~[prefix/]cmd_vel` [geometry_msgs/Twist](http://docs.ros.org/api/geometry_msgs/html/msg/Twist.html)
+* `~[prefix/]start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `~[prefix/]stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
 
 #### Published services
 
-* `~tello_command` tello_msgs/TelloCommand
+* `~[prefix/]tello_command` tello_msgs/TelloCommand
+
+#### Parameters
+
+* `drones` is an array of strings, where each string is a topic prefix
 
 ### filter
 
 Uses a Kalman filter to estimate pose and velocity.
 The estimate is published on the `filtered_odom` topic.
 
-Publishes a transform from `map` to `base_link`.
+Publishes a transform from the map frame to the base frame.
 
 Publishes the estimated path during a mission.
 
@@ -53,6 +57,11 @@ Publishes the estimated path during a mission.
 * `~filtered_odom` [nav_msgs/Odometry](http://docs.ros.org/api/nav_msgs/html/msg/Odometry.html)
 * `~estimated_path` [nav_msgs/Path](http://docs.ros.org/api/nav_msgs/html/msg/Path.html)
 * `/tf` [tf2_msgs/TFMessage](http://docs.ros.org/api/tf2_msgs/html/msg/TFMessage.html)
+
+#### Parameters
+
+* `map_frame` is the world frame. The default is `map`.
+* `base_frame` is the coordinate frame of the drone. The default is `base_link`.
 
 ### flock_simple_path
 
@@ -69,6 +78,11 @@ Send `start_mission` to run the mission, and `stop_mission` to stop it.
 
 * `~planned_path` [nav_msgs/Path](http://docs.ros.org/api/nav_msgs/html/msg/Path.html)
 * `~cmd_vel` [geometry_msgs/Twist](http://docs.ros.org/api/geometry_msgs/html/msg/Twist.html)
+
+#### Parameters
+
+* `map_frame` is the world frame. The default is `map`.
+* `base_frame` is the coordinate frame of the drone. The default is `base_link`.
 
 ## Installation
 
@@ -112,9 +126,9 @@ colcon build --event-handlers console_direct+
 
 ## Running
 
-### Teleop
+### Flying a single drone
 
-`teleop_launch.py` will allow you to fly the drone using a wired XBox One gamepad.
+`teleop_launch.py` will allow you to fly a drone using a wired XBox One gamepad.
 
 Turn on the drone, connect to `TELLO-XXXXX` via wi-fi, and launch ROS:
 ~~~
@@ -123,12 +137,29 @@ source ~/flock2_ws/install/setup.bash
 ros2 launch flock2 teleop_launch.py
 ~~~
 
-Controls:
+Key controls:
 * menu button to take off
 * view button to land
 * left bumper and B to start mission
 * left bumper and A to stop mission
+ 
+### Support for multiple drones
 
-## Future Work
+`flock_base` supports an arbitrary number of drones using the `drones` parameter:
+* If `drones` is missing or has length 0, a single drone object is created with an empty prefix.
+* If `drones` has length 1, a single drone object is created with the specified prefix.
+* If `drones` has length N, N drones are created with the specified prefixes.
 
-The primary goal is to autonomously fly multiple Tello drones in simple patterns.
+For example, if the `drone` parameter is set to `['foo', 'bar']` then 2 drones will be created,
+and the drones will publish velocity commands on topics `foo/cmd_vel` and `bar/cmd_vel`.
+
+The joystick can control one drone at a time.
+Hitting the right bumper will select a different drone to control.
+
+You'll need a network configuration that allows you to connect to multiple Tello drones.
+You may want to use a port forwarding solution such as 
+[udp_forward](https://github.com/clydemcqueen/udp_forward).
+
+You'll need to provide a separate URDF file for each drone with the appropriate coordinate frames.
+
+`flock_launch.py` provides an example for 2 drones.
