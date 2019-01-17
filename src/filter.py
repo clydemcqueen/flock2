@@ -60,6 +60,10 @@ class Filter(Node):
     def __init__(self):
         super().__init__('filter')
 
+        # Parameters
+        self._map_frame = self.get_parameter_or('map_frame', 'map')
+        self._base_frame = self.get_parameter_or('base_frame', 'base_link')
+
         self._last_msg_time = None
         self._mission_active = False
 
@@ -89,14 +93,20 @@ class Filter(Node):
         self._tf_msg = TFMessage()
         self._tf_msg.transforms.append(TransformStamped())
         self._path_msg = Path()
-        self._path_msg.header.frame_id = 'map'
+        self._path_msg.header.frame_id = self._map_frame
 
-        # Pose of base_link in the camera frame
+        # Pose of base_frame in the camera frame
         self._t_camera_base = xf.inverse_matrix(pose_to_matrix(Pose(
             position=Point(x=0.035, y=0., z=0.),
             orientation=Quaternion(x=-0.5, y=0.5, z=-0.5, w=0.5))))
 
         self.get_logger().info('filter.py ready')
+
+    def get_parameter_or(self, name, default):
+        value = self.get_parameter(name).value
+        if value is None:
+            value = default
+        return value
 
     def _start_mission_callback(self, _msg: Empty):
         self._path_msg.poses.clear()
@@ -156,7 +166,7 @@ class Filter(Node):
         x, P = self._filter.update(z, R)
 
         self._filtered_odom_msg.header = msg.header
-        self._filtered_odom_msg.child_frame_id = 'base_link'
+        self._filtered_odom_msg.child_frame_id = self._base_frame
         self._filtered_odom_msg.pose.pose.position.x = x[0, 0]
         self._filtered_odom_msg.pose.pose.position.y = x[1, 0]
         self._filtered_odom_msg.pose.pose.position.z = x[2, 0]
@@ -181,7 +191,7 @@ class Filter(Node):
         # Publish path
         if self._mission_active and self.count_subscribers(self.ESTIMATED_PATH_TOPIC) > 0:
             pose_stamped = PoseStamped()
-            pose_stamped.header.frame_id = 'base_link'
+            pose_stamped.header.frame_id = self._base_frame
             pose_stamped.header.stamp = msg.header.stamp
             util.copy_pose_to_pose(self._filtered_odom_msg.pose.pose, pose_stamped.pose)
             self._path_msg.poses.append(pose_stamped)
@@ -191,7 +201,7 @@ class Filter(Node):
         # Publish tf
         if self.count_subscribers(self.TF_TOPIC) > 0:
             self._tf_msg.transforms[0].header = msg.header
-            self._tf_msg.transforms[0].child_frame_id = 'base_link'
+            self._tf_msg.transforms[0].child_frame_id = self._base_frame
             util.copy_pose_to_transform(self._filtered_odom_msg.pose.pose, self._tf_msg.transforms[0].transform)
             self._tf_pub.publish(self._tf_msg)
 

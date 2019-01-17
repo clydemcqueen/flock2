@@ -57,30 +57,29 @@ include_directories(
   ${Eigen3_INCLUDE_DIRS}
   ${geometry_msgs_INCLUDE_DIRS}
   ${nav_msgs_INCLUDE_DIRS}
+  ${rclcpp_INCLUDE_DIRS}
   ${sensor_msgs_INCLUDE_DIRS}
+  ${tello_msgs_INCLUDE_DIRS}
   ${tf2_msgs_INCLUDE_DIRS}
   ${visualization_msgs_INCLUDE_DIRS}
 )
 
 #=============
-# Detect markers node
+# Flock base node
 #=============
 
-add_executable(detect_markers src/detect_markers.cpp src/eigen_util.cpp)
+add_executable(flock_base src/flock_base.cpp src/action_mgr.cpp src/drone.cpp)
 
 ament_target_dependencies(
-  detect_markers
-  cv_bridge
+  flock_base
   geometry_msgs
-  nav_msgs
   rclcpp
+  tello_msgs
   sensor_msgs
-  tf2_msgs
-  visualization_msgs
 )
 
 #=============
-# USB camera
+# USB camera node
 #=============
 
 add_executable(usb_camera src/usb_camera.cpp)
@@ -99,7 +98,7 @@ ament_target_dependencies(
 # Install targets
 install(
   TARGETS
-  detect_markers
+  flock_base
   usb_camera
   DESTINATION lib/flock2
 )
@@ -107,9 +106,7 @@ install(
 # Install all Python programs
 install(
   PROGRAMS  # PROGRAMS sets execute bits, FILES clears them
-  src/action_mgr.py
   src/filter.py
-  src/flock_base.py
   src/flock_simple_path.py
   src/kf.py
   src/smooth_path_4poly_2min.py
