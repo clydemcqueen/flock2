@@ -85,15 +85,15 @@ Use your favorite Python package manager to set up Python 3.6+ and the following
 
 ### 3. Set up your ROS environment
 
-[Install ROS2 Crystal Clemmys](https://github.com/ros2/ros2/wiki/Installation) with the `ros-crystal-desktop` option.
+[Install ROS2 Crystal Clemmys](https://index.ros.org/doc/ros2/Installation/) with the `ros-crystal-desktop` option.
 
 If you install binaries, be sure to also install the 
-[development tools and ROS tools](https://github.com/ros2/ros2/wiki/Linux-Development-Setup#install-development-tools-and-ros-tools)
+[development tools and ROS tools](https://index.ros.org/doc/ros2/Installation/Linux-Development-Setup/)
 from the source installation instructions.
 
 Install these additional packages:
 ~~~
-sudo apt install ros-crystal-joystick-drivers ros-crystal-cv-bridge
+sudo apt install ros-crystal-cv-bridge
 ~~~
 
 ### 4. Install flock2, flock_vlam and tello_ros
