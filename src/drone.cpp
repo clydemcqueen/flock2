@@ -78,7 +78,11 @@ Drone::Drone(FlockBase *node, std::string ns) : node_{node}, ns_{ns}
   auto flight_data_cb = std::bind(&Drone::flight_data_callback, this, std::placeholders::_1);
   flight_data_sub_ = node_->create_subscription<tello_msgs::msg::FlightData>(pre + "flight_data", flight_data_cb);
 
-  RCLCPP_INFO(node_->get_logger(), "drone %s ready", ns_.c_str());
+  if (ns_.empty()) {
+    RCLCPP_INFO(node_->get_logger(), "flock_base ready");
+  } else {
+    RCLCPP_INFO(node_->get_logger(), "flock_base %s ready", ns_.c_str());
+  }
 }
 
 void Drone::start_action(Action action)

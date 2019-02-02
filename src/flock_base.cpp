@@ -10,8 +10,7 @@ FlockBase::FlockBase() : Node{"flock_base"}
     for (auto i = drone_namespaces.begin(); i != drone_namespaces.end(); i++) {
       drones_.push_back(std::make_shared<Drone>(this, *i));
     }
-    RCLCPP_INFO(get_logger(), "%d drones, joystick controls %s",
-      drone_namespaces.size(), drones_[manual_control_]->ns().c_str());
+    RCLCPP_INFO(get_logger(), "joystick controls %s, right bumper to change", drones_[manual_control_]->ns().c_str());
   } else {
     drones_.push_back(std::make_shared<Drone>(this));
   }

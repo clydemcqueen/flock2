@@ -62,6 +62,7 @@ public:
 
   void spin_once();
 };
+
 } // namespace flock_base
 
 #endif // FLOCK_BASE_H
