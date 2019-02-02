@@ -78,8 +78,8 @@ def generate_launch_description():
              node_name='vloc2', node_namespace=dr2_ns),
 
         # N Kalman filters
-        Node(package='flock2', node_executable='filter.py', output='screen',
+        Node(package='flock2', node_executable='filter_node', output='screen',
              node_name='filter1', node_namespace=dr1_ns, parameters=filter1_params),
-        Node(package='flock2', node_executable='filter.py', output='screen',
+        Node(package='flock2', node_executable='filter_node', output='screen',
              node_name='filter2', node_namespace=dr2_ns, parameters=filter2_params),
     ])

@@ -68,7 +68,12 @@ include_directories(
 # Flock base node
 #=============
 
-add_executable(flock_base src/flock_base.cpp src/action_mgr.cpp src/drone.cpp)
+add_executable(
+  flock_base
+  src/flock_base.cpp
+  src/action_mgr.cpp
+  src/drone.cpp
+)
 
 ament_target_dependencies(
   flock_base
@@ -92,6 +97,25 @@ ament_target_dependencies(
 )
 
 #=============
+# Filter node
+#=============
+
+add_executable(
+  filter_node
+  src/filter_node.cpp
+  src/kf.cpp
+)
+
+ament_target_dependencies(
+  filter_node
+  geometry_msgs
+  nav_msgs
+  rclcpp
+  std_msgs
+  tf2_msgs
+)
+
+#=============
 # Install
 #=============
 
@@ -100,15 +124,14 @@ install(
   TARGETS
   flock_base
   usb_camera
+  filter_node
   DESTINATION lib/flock2
 )
 
 # Install all Python programs
 install(
   PROGRAMS  # PROGRAMS sets execute bits, FILES clears them
-  src/filter.py
   src/flock_simple_path.py
-  src/kf.py
   src/smooth_path_4poly_2min.py
   src/util.py
   DESTINATION lib/flock2

@@ -17,7 +17,7 @@ def generate_launch_description():
         Node(package='joy', node_executable='joy_node', output='screen'),
         Node(package='flock_vlam', node_executable='vloc_node', output='screen'),
         Node(package='flock_vlam', node_executable='vmap_node', output='screen'),
-        Node(package='flock2', node_executable='filter.py', output='screen'),
+        Node(package='flock2', node_executable='filter_node', output='screen'),
         Node(package='flock2', node_executable='flock_base', output='screen'),
         Node(package='flock2', node_executable='flock_simple_path.py', output='screen'),
     ])
