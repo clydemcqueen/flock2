@@ -363,8 +363,8 @@ class FlockSimplePath(Node):
         self._path_pub = self.create_publisher(Path, 'planned_path')
 
         # ROS subscriptions
-        self.create_subscription(Empty, 'start_mission', self._ros_start_callback)
-        self.create_subscription(Empty, 'stop_mission', self._ros_stop_callback)
+        self.create_subscription(Empty, '/start_mission', self._ros_start_callback)
+        self.create_subscription(Empty, '/stop_mission', self._ros_stop_callback)
         self.create_subscription(TFMessage, '/tf', self._ros_tf_callback)
 
         # Timer

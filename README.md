@@ -27,8 +27,8 @@ Controls a flock of Tello drones.
 #### Published topics
 
 * `~[prefix/]cmd_vel` [geometry_msgs/Twist](http://docs.ros.org/api/geometry_msgs/html/msg/Twist.html)
-* `~[prefix/]start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
-* `~[prefix/]stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `/start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `/stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
 
 #### Published services
 
@@ -49,8 +49,8 @@ Publishes the estimated path during a mission.
 
 #### Subscribed topics
 
-* `~start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
-* `~stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `/start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `/stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
 * `~camera_pose` [geometry_msgs/PoseWithCovarianceStamped](http://docs.ros.org/api/geometry_msgs/html/msg/PoseWithCovarianceStamped.html)
 
 #### Published topics
@@ -71,8 +71,8 @@ Send `start_mission` to run the mission, and `stop_mission` to stop it.
 
 #### Subscribed topics
 
-* `~start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
-* `~stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `/start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `/stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
 * `/tf` [tf2_msgs/TFMessage](http://docs.ros.org/api/tf2_msgs/html/msg/TFMessage.html)
 
 #### Published topics
@@ -151,11 +151,13 @@ Key controls:
 * If `drones` has length 1, a single drone object is created with the specified prefix.
 * If `drones` has length N, N drones are created with the specified prefixes.
 
-For example, if the `drone` parameter is set to `['foo', 'bar']` then 2 drones will be created,
+For example, if the `drone` parameter is set to `['foo', 'bar']` then 2 drone objects will be created,
 and the drones will publish velocity commands on topics `foo/cmd_vel` and `bar/cmd_vel`.
 
 The joystick can control one drone at a time.
 Hitting the right bumper will select a different drone to control.
+
+All drones participate in a mission.
 
 You'll need a network configuration that allows you to connect to multiple Tello drones.
 You may want to use a port forwarding solution such as 

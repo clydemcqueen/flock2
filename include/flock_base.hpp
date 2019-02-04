@@ -2,6 +2,7 @@
 #define FLOCK_BASE_H
 
 #include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/empty.hpp"
 
 #include "drone.hpp"
 
@@ -30,6 +31,9 @@ const int JOY_BUTTON_RIGHT_STICK = 10;    // Right stick button
 
 class FlockBase : public rclcpp::Node
 {
+  // Global state
+  bool mission_;
+
   // Our drones
   std::vector<std::shared_ptr<Drone>> drones_;
 
@@ -50,6 +54,10 @@ class FlockBase : public rclcpp::Node
   int joy_axis_trim_lr_ = JOY_AXIS_TRIM_LR;
   int joy_axis_trim_fb_ = JOY_AXIS_TRIM_FB;
 
+  // Publications
+  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr start_mission_pub_;
+  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr stop_mission_pub_;
+
   // Subscriptions
   rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_sub_;
 
@@ -57,6 +65,8 @@ public:
 
   explicit FlockBase();
   ~FlockBase() {}
+
+  bool mission() const { return mission_; }
 
   void joy_callback(sensor_msgs::msg::Joy::SharedPtr msg);
 

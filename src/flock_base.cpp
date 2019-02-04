@@ -17,6 +17,9 @@ FlockBase::FlockBase() : Node{"flock_base"}
 
   auto joy_cb = std::bind(&FlockBase::joy_callback, this, std::placeholders::_1);
   joy_sub_ = create_subscription<sensor_msgs::msg::Joy>("joy", joy_cb);
+
+  start_mission_pub_ = create_publisher<std_msgs::msg::Empty>("/start_mission", 1);
+  stop_mission_pub_ = create_publisher<std_msgs::msg::Empty>("/stop_mission", 1);
 }
 
 inline bool button_down(const sensor_msgs::msg::Joy::SharedPtr curr, const sensor_msgs::msg::Joy &prev, int index)
@@ -28,6 +31,22 @@ void FlockBase::joy_callback(sensor_msgs::msg::Joy::SharedPtr msg)
 {
   static sensor_msgs::msg::Joy prev_msg;
 
+  // Stop/start a mission
+  if (mission_ && button_down(msg, prev_msg, joy_button_stop_mission_)) {
+    stop_mission_pub_->publish(std_msgs::msg::Empty());
+    mission_ = false;
+  } else if (!mission_ && button_down(msg, prev_msg, joy_button_start_mission_)) {
+    start_mission_pub_->publish(std_msgs::msg::Empty());
+    mission_ = true;
+  }
+
+  // Ignore further input if we're in a mission
+  if (mission_) {
+    prev_msg = *msg;
+    return;
+  }
+
+  // Toggle between drones
   if (button_down(msg, prev_msg, joy_button_next_drone_)) {
     if (drones_.size() < 2) {
       RCLCPP_WARN(get_logger(), "there's only 1 drone");
@@ -37,17 +56,14 @@ void FlockBase::joy_callback(sensor_msgs::msg::Joy::SharedPtr msg)
       }
       RCLCPP_INFO(get_logger(), "joystick controls %s", drones_[manual_control_]->ns().c_str());
     }
-  } else if (button_down(msg, prev_msg, joy_button_takeoff_)) {
-    drones_[manual_control_]->start_action(Action::takeoff);
-  } else if (button_down(msg, prev_msg, joy_button_land_)) {
-    drones_[manual_control_]->start_action(Action::land);
-  } else if (button_down(msg, prev_msg, joy_button_start_mission_)) {
-    drones_[manual_control_]->start_action(Action::start_mission);
-  } else if (button_down(msg, prev_msg, joy_button_stop_mission_)) {
-    drones_[manual_control_]->start_action(Action::stop_mission);
   }
 
-  prev_msg = *msg;
+  // Takeoff/land
+  if (!mission_ && button_down(msg, prev_msg, joy_button_takeoff_)) {
+    drones_[manual_control_]->start_action(Action::takeoff);
+  } else if (!mission_ && button_down(msg, prev_msg, joy_button_land_)) {
+    drones_[manual_control_]->start_action(Action::land);
+  }
 
   // Trim (slow, steady) mode vs. joystick mode
   if (msg->axes[joy_axis_trim_lr_] || msg->axes[joy_axis_trim_fb_]) {
@@ -68,7 +84,6 @@ void FlockBase::joy_callback(sensor_msgs::msg::Joy::SharedPtr msg)
       }
     }
     drones_[manual_control_]->set_velocity(throttle, strafe, vertical, yaw);
-
   } else {
     drones_[manual_control_]->set_velocity(
       msg->axes[joy_axis_throttle_],
@@ -76,6 +91,8 @@ void FlockBase::joy_callback(sensor_msgs::msg::Joy::SharedPtr msg)
       msg->axes[joy_axis_vertical_],
       msg->axes[joy_axis_yaw_]);
   }
+
+  prev_msg = *msg;
 }
 
 void FlockBase::spin_once()

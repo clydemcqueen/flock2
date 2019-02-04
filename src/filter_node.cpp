@@ -155,8 +155,8 @@ FilterNode::FilterNode() :
   auto pose_cb = std::bind(&FilterNode::camera_pose_callback, this, std::placeholders::_1);
 
   // Subscriptions
-  start_mission_sub_ = create_subscription<std_msgs::msg::Empty>("start_mission", start_mission_cb);
-  stop_mission_sub_ = create_subscription<std_msgs::msg::Empty>("stop_mission", stop_mission_cb);
+  start_mission_sub_ = create_subscription<std_msgs::msg::Empty>("/start_mission", start_mission_cb);
+  stop_mission_sub_ = create_subscription<std_msgs::msg::Empty>("/stop_mission", stop_mission_cb);
   camera_pose_sub_ = create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("camera_pose", pose_cb);
 
   // Publications

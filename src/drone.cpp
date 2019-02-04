@@ -13,15 +13,12 @@ const rclcpp::Duration ODOM_TIMEOUT{4};         // We stopped receiving odometry
 std::map<State, const char *> g_states{
   {State::unknown, "unknown"},
   {State::landed, "landed"},
-  {State::fly_manual, "fly_manual"},
-  {State::fly_mission, "fly_mission"},
+  {State::flying, "flying"},
 };
 
 std::map<Action, const char *> g_actions{
   {Action::takeoff, "takeoff"},
   {Action::land, "land"},
-  {Action::start_mission, "start_mission"},
-  {Action::stop_mission, "stop_mission"},
   {Action::connect, "connect"},
   {Action::disconnect, "disconnect"},
 };
@@ -44,16 +41,11 @@ bool valid_transition(const State state, const Action action, State &next_state,
     // Connect / disconnect
     Transition{State::unknown, Action::connect, State::landed, false},
     Transition{State::landed, Action::disconnect, State::unknown, false},
-    Transition{State::fly_manual, Action::disconnect, State::unknown, false},
-    Transition{State::fly_mission, Action::disconnect, State::unknown, false},
+    Transition{State::flying, Action::disconnect, State::unknown, false},
 
     // Take off / land
-    Transition{State::landed, Action::takeoff, State::fly_manual, true},
-    Transition{State::fly_manual, Action::land, State::landed, true},
-
-    // Start / stop mission
-    Transition{State::fly_manual, Action::start_mission, State::fly_mission, false},
-    Transition{State::fly_mission, Action::stop_mission, State::fly_manual, false},
+    Transition{State::landed, Action::takeoff, State::flying, true},
+    Transition{State::flying, Action::land, State::landed, true},
   };
 
   for (auto i = valid_transitions.begin(); i != valid_transitions.end(); i++) {
@@ -74,8 +66,6 @@ Drone::Drone(FlockBase *node, std::string ns) : node_{node}, ns_{ns}
   action_mgr_ = std::make_unique<ActionMgr>(ns_, node_->get_logger(),
     node_->create_client<tello_msgs::srv::TelloAction>(pre + "tello_action"));
 
-  start_mission_pub_ = node_->create_publisher<std_msgs::msg::Empty>(pre + "start_mission", 1);
-  stop_mission_pub_ = node_->create_publisher<std_msgs::msg::Empty>(pre + "stop_mission", 1);
   cmd_vel_pub_ = node_->create_publisher<geometry_msgs::msg::Twist>(pre + "cmd_vel", 1);
 
   auto tello_response_cb = std::bind(&Drone::tello_response_callback, this, std::placeholders::_1);
@@ -110,14 +100,7 @@ void Drone::start_action(Action action)
   if (send_to_drone) {
     RCLCPP_INFO(node_->get_logger(), "%s: initiating %s", ns_.c_str(), g_actions[action]);
     action_mgr_->send(action, g_actions[action]);
-
   } else {
-    if (action == Action::start_mission) {
-      start_mission_pub_->publish(std_msgs::msg::Empty());
-    } else if (action == Action::stop_mission) {
-      stop_mission_pub_->publish(std_msgs::msg::Empty());
-    }
-
     transition_state(action);
   }
 }
@@ -190,7 +173,7 @@ void Drone::spin_once()
   action_mgr_->spin_once();
 
   // If we're flying manually and the drone isn't busy, send a cmd_vel message
-  if (state_ == State::fly_manual && !action_mgr_->busy()) {
+  if (node_->mission() && state_ == State::flying && !action_mgr_->busy()) {
     cmd_vel_pub_->publish(twist_);
   }
 }

@@ -4,7 +4,6 @@
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "sensor_msgs/msg/joy.hpp"
-#include "std_msgs/msg/empty.hpp"
 #include "tello_msgs/msg/flight_data.hpp"
 
 #include "action_mgr.hpp"
@@ -15,16 +14,13 @@ enum class State
 {
   unknown,
   landed,
-  fly_manual,
-  fly_mission,
+  flying,
 };
 
 enum class Action
 {
   takeoff,
   land,
-  start_mission,
-  stop_mission,
   connect,
   disconnect,
 };
@@ -53,8 +49,6 @@ class Drone
   rclcpp::Time prev_odom_stamp_;
 
   // Publications
-  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr start_mission_pub_;
-  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr stop_mission_pub_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
 
   // Subscriptions
