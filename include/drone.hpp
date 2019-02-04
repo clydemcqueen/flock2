@@ -2,6 +2,7 @@
 #define DRONE_H
 
 #include "geometry_msgs/msg/twist.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 #include "sensor_msgs/msg/joy.hpp"
 #include "std_msgs/msg/empty.hpp"
 #include "tello_msgs/msg/flight_data.hpp"
@@ -47,6 +48,10 @@ class Drone
   // Target velocity
   geometry_msgs::msg::Twist twist_;
 
+  // Message timestamps
+  rclcpp::Time prev_flight_data_stamp_;
+  rclcpp::Time prev_odom_stamp_;
+
   // Publications
   rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr start_mission_pub_;
   rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr stop_mission_pub_;
@@ -55,6 +60,7 @@ class Drone
   // Subscriptions
   rclcpp::Subscription<tello_msgs::msg::TelloResponse>::SharedPtr tello_response_sub_;
   rclcpp::Subscription<tello_msgs::msg::FlightData>::SharedPtr flight_data_sub_;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
 
 public:
 
@@ -78,6 +84,7 @@ private:
 
   void tello_response_callback(tello_msgs::msg::TelloResponse::SharedPtr msg);
   void flight_data_callback(tello_msgs::msg::FlightData::SharedPtr msg);
+  void odom_callback(nav_msgs::msg::Odometry::SharedPtr msg);
 };
 
 } // namespace flock_base

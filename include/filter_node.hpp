@@ -23,9 +23,8 @@ class FilterNode : public rclcpp::Node
   tf2::Transform t_camera_base_;
 
   // Node state
-  bool valid_;
   bool mission_;
-  builtin_interfaces::msg::Time prev_stamp_;
+  rclcpp::Time prev_stamp_;
   kf::KalmanFilter filter_;
   nav_msgs::msg::Path path_msg_;
 

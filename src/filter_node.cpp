@@ -25,11 +25,8 @@ constexpr int MEASUREMENT_DIM = 6;
 // Utility functions
 //==================================================================
 
-// Duration from t1 to t2 in seconds
-double duration(const builtin_interfaces::msg::Time &t1, const builtin_interfaces::msg::Time &t2)
-{
-  return double(t2.sec - t1.sec) + double(t2.nanosec - t1.nanosec) / 1.e9;
-}
+// rclcpp::Time t() initializes nanoseconds to 0
+inline bool valid(rclcpp::Time &t) { return t.nanoseconds() > 0; }
 
 // Create measurement matrix
 void to_z(const tf2::Transform &in, Eigen::MatrixXd &out)
@@ -125,7 +122,6 @@ void x_to_pose(const Eigen::MatrixXd &in, geometry_msgs::msg::Vector3 &out_t, ge
 
 FilterNode::FilterNode() :
   Node{"filter_node"},
-  valid_{false},
   mission_{false},
   filter_{STATE_DIM, MEASUREMENT_DIM}
 {
@@ -189,11 +185,12 @@ void FilterNode::stop_mission_callback(std_msgs::msg::Empty::SharedPtr msg)
 // Process raw camera pose and publish estimated drone pose
 void FilterNode::camera_pose_callback(geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
 {
+  rclcpp::Time stamp(msg->header.stamp);
+
   // First message sets the starting time
-  if (!valid_) {
-    valid_ = true;
+  if (!valid(prev_stamp_)) {
     RCLCPP_INFO(get_logger(), "receiving poses");
-    prev_stamp_ = msg->header.stamp;
+    prev_stamp_ = stamp;
     return;
   }
 
@@ -205,8 +202,8 @@ void FilterNode::camera_pose_callback(geometry_msgs::msg::PoseWithCovarianceStam
   tf2::Transform t_map_base = t_map_camera * t_camera_base_;
 
   // Negative dt can happen during some testing situations
-  auto dt = duration(prev_stamp_, msg->header.stamp);
-  prev_stamp_ = msg->header.stamp;
+  auto dt = (stamp - prev_stamp_).seconds();
+  prev_stamp_ = stamp;
   if (dt < 0) {
     RCLCPP_ERROR(get_logger(), "time went backwards, ignoring message");
     return;

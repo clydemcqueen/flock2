@@ -22,6 +22,7 @@ Controls a flock of Tello drones.
 * `~joy` [sensor_msgs/Joy](http://docs.ros.org/api/sensor_msgs/html/msg/Joy.html)
 * `~[prefix/]tello_response` tello_msgs/TelloResponse
 * `~[prefix/]flight_data` tello_msgs/FlightData
+* `~[prefix/]filtered_odom` [nav_msgs/Odometry](http://docs.ros.org/api/nav_msgs/html/msg/Odometry.html)
 
 #### Published topics
 
@@ -37,7 +38,7 @@ Controls a flock of Tello drones.
 
 * `drones` is an array of strings, where each string is a topic prefix
 
-### filter
+### filter_node
 
 Uses a Kalman filter to estimate pose and velocity.
 The estimate is published on the `filtered_odom` topic.

@@ -4,6 +4,12 @@
 
 namespace flock_base {
 
+// rclcpp::Time t() initializes nanoseconds to 0
+inline bool valid(rclcpp::Time &t) { return t.nanoseconds() > 0; }
+
+const rclcpp::Duration FLIGHT_DATA_TIMEOUT{4};  // We stopped receiving telemetry
+const rclcpp::Duration ODOM_TIMEOUT{4};         // We stopped receiving odometry
+
 std::map<State, const char *> g_states{
   {State::unknown, "unknown"},
   {State::landed, "landed"},
@@ -73,10 +79,12 @@ Drone::Drone(FlockBase *node, std::string ns) : node_{node}, ns_{ns}
   cmd_vel_pub_ = node_->create_publisher<geometry_msgs::msg::Twist>(pre + "cmd_vel", 1);
 
   auto tello_response_cb = std::bind(&Drone::tello_response_callback, this, std::placeholders::_1);
-  tello_response_sub_ = node_->create_subscription<tello_msgs::msg::TelloResponse>(pre + "tello_response", tello_response_cb);
-
   auto flight_data_cb = std::bind(&Drone::flight_data_callback, this, std::placeholders::_1);
+  auto odom_cb = std::bind(&Drone::odom_callback, this, std::placeholders::_1);
+
+  tello_response_sub_ = node_->create_subscription<tello_msgs::msg::TelloResponse>(pre + "tello_response", tello_response_cb);
   flight_data_sub_ = node_->create_subscription<tello_msgs::msg::FlightData>(pre + "flight_data", flight_data_cb);
+  odom_sub_ = node_->create_subscription<nav_msgs::msg::Odometry>(pre + "filtered_odom", odom_cb);
 
   if (ns_.empty()) {
     RCLCPP_INFO(node_->get_logger(), "flock_base ready");
@@ -139,12 +147,22 @@ void Drone::tello_response_callback(tello_msgs::msg::TelloResponse::SharedPtr ms
 
 void Drone::flight_data_callback(tello_msgs::msg::FlightData::SharedPtr msg)
 {
-  (void)msg;
+  prev_flight_data_stamp_ = msg->header.stamp;
 
   if (state_ == State::unknown) {
     RCLCPP_INFO(node_->get_logger(), "%s: receiving flight data", ns_.c_str());
     transition_state(Action::connect);
   }
+}
+
+void Drone::odom_callback(nav_msgs::msg::Odometry::SharedPtr msg)
+{
+  if (!valid(prev_odom_stamp_)) {
+    RCLCPP_INFO(node_->get_logger(), "%s: receiving odom", ns_.c_str());
+    // TODO
+  }
+
+  prev_odom_stamp_ = msg->header.stamp;
 }
 
 void Drone::set_velocity(double throttle, double strafe, double vertical, double yaw)
@@ -157,6 +175,18 @@ void Drone::set_velocity(double throttle, double strafe, double vertical, double
 
 void Drone::spin_once()
 {
+  if (valid(prev_flight_data_stamp_) && node_->now() - prev_flight_data_stamp_ > FLIGHT_DATA_TIMEOUT) {
+    RCLCPP_ERROR(node_->get_logger(), "%s: lost flight data", ns_.c_str());
+    prev_flight_data_stamp_ = rclcpp::Time();
+    // TODO
+  }
+
+  if (valid(prev_odom_stamp_) && node_->now() - prev_odom_stamp_ > ODOM_TIMEOUT) {
+    RCLCPP_ERROR(node_->get_logger(), "%s: lost odometry", ns_.c_str());
+    prev_odom_stamp_ = rclcpp::Time();
+    // TODO
+  }
+
   action_mgr_->spin_once();
 
   // If we're flying manually and the drone isn't busy, send a cmd_vel message

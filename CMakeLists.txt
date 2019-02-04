@@ -78,6 +78,7 @@ add_executable(
 ament_target_dependencies(
   flock_base
   geometry_msgs
+  nav_msgs
   rclcpp
   tello_msgs
   sensor_msgs
