@@ -4,54 +4,101 @@
 
 namespace flock_base {
 
-// rclcpp::Time t() initializes nanoseconds to 0
-inline bool valid(rclcpp::Time &t) { return t.nanoseconds() > 0; }
-
-const rclcpp::Duration FLIGHT_DATA_TIMEOUT{4};  // We stopped receiving telemetry
-const rclcpp::Duration ODOM_TIMEOUT{4};         // We stopped receiving odometry
+const rclcpp::Duration FLIGHT_DATA_TIMEOUT{1500000000};   // Nanoseconds
+const rclcpp::Duration ODOM_TIMEOUT{1500000000};          // Nanoseconds
+const int MIN_BATTERY{20};                                // Percent
 
 std::map<State, const char *> g_states{
   {State::unknown, "unknown"},
-  {State::landed, "landed"},
-  {State::flying, "flying"},
+  {State::ready, "ready"},
+  {State::flight, "flight"},
+  {State::ready_odom, "ready_odom"},
+  {State::flight_odom, "flight_odom"},
+  {State::low_battery, "low_battery"},
+};
+
+std::map<Event, const char *> g_events{
+  {Event::connected, "connected"},
+  {Event::disconnected, "disconnected"},
+  {Event::odometry_started, "odometry_started"},
+  {Event::odometry_stopped, "odometry_stopped"},
+  {Event::low_battery, "low_battery"},
 };
 
 std::map<Action, const char *> g_actions{
   {Action::takeoff, "takeoff"},
   {Action::land, "land"},
-  {Action::connect, "connect"},
-  {Action::disconnect, "disconnect"},
 };
 
-struct Transition
+struct EventTransition
+{
+  State curr_state_;
+  Event event_;
+  State next_state_;
+
+  EventTransition(State curr_state, Event event, State next_state):
+    curr_state_{curr_state}, event_{event}, next_state_{next_state}
+  {}
+};
+
+struct ActionTransition
 {
   State curr_state_;
   Action action_;
   State next_state_;
-  bool send_to_drone_;
 
-  Transition(State curr_state, Action action, State next_state, bool send_to_drone):
-    curr_state_{curr_state}, action_{action}, next_state_{next_state}, send_to_drone_{send_to_drone}
+  ActionTransition(State curr_state, Action action, State next_state):
+    curr_state_{curr_state}, action_{action}, next_state_{next_state}
   {}
 };
 
-bool valid_transition(const State state, const Action action, State &next_state, bool &internal)
+bool valid_event_transition(const State state, const Event event, State &next_state)
 {
-  const static std::vector<Transition> valid_transitions{
-    // Connect / disconnect
-    Transition{State::unknown, Action::connect, State::landed, false},
-    Transition{State::landed, Action::disconnect, State::unknown, false},
-    Transition{State::flying, Action::disconnect, State::unknown, false},
+  const static std::vector<EventTransition> valid_transitions{
+    EventTransition{State::unknown, Event::connected, State::ready},
 
-    // Take off / land
-    Transition{State::landed, Action::takeoff, State::flying, true},
-    Transition{State::flying, Action::land, State::landed, true},
+    EventTransition{State::ready, Event::disconnected, State::unknown},
+    EventTransition{State::ready, Event::odometry_started, State::ready_odom},
+    EventTransition{State::ready, Event::low_battery, State::low_battery},
+
+    EventTransition{State::flight, Event::disconnected, State::unknown},
+    EventTransition{State::flight, Event::odometry_started, State::flight_odom},
+    EventTransition{State::flight, Event::low_battery, State::low_battery},
+
+    EventTransition{State::ready_odom, Event::disconnected, State::unknown},
+    EventTransition{State::ready_odom, Event::odometry_stopped, State::ready},
+    EventTransition{State::ready_odom, Event::low_battery, State::low_battery},
+
+    EventTransition{State::flight_odom, Event::disconnected, State::unknown},
+    EventTransition{State::flight_odom, Event::odometry_stopped, State::flight},
+    EventTransition{State::flight_odom, Event::low_battery, State::low_battery},
+
+    EventTransition{State::low_battery, Event::disconnected, State::unknown},
+  };
+
+  for (auto i = valid_transitions.begin(); i != valid_transitions.end(); i++) {
+    if (i->curr_state_ == state && i->event_ == event) {
+      next_state = i->next_state_;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool valid_action_transition(const State state, const Action action, State &next_state)
+{
+  const static std::vector<ActionTransition> valid_transitions{
+    ActionTransition{State::ready, Action::takeoff, State::flight},
+    ActionTransition{State::ready_odom, Action::takeoff, State::flight_odom},
+
+    ActionTransition{State::flight, Action::land, State::ready},
+    ActionTransition{State::flight_odom, Action::land, State::ready_odom},
   };
 
   for (auto i = valid_transitions.begin(); i != valid_transitions.end(); i++) {
     if (i->curr_state_ == state && i->action_ == action) {
       next_state = i->next_state_;
-      internal = i->send_to_drone_;
       return true;
     }
   }
@@ -76,46 +123,54 @@ Drone::Drone(FlockBase *node, std::string ns) : node_{node}, ns_{ns}
   flight_data_sub_ = node_->create_subscription<tello_msgs::msg::FlightData>(pre + "flight_data", flight_data_cb);
   odom_sub_ = node_->create_subscription<nav_msgs::msg::Odometry>(pre + "filtered_odom", odom_cb);
 
-  if (ns_.empty()) {
-    RCLCPP_INFO(node_->get_logger(), "flock_base ready");
-  } else {
-    RCLCPP_INFO(node_->get_logger(), "flock_base %s ready", ns_.c_str());
-  }
+  RCLCPP_INFO(node_->get_logger(), "[%s] drone initialized", ns_.c_str());
 }
 
 void Drone::start_action(Action action)
 {
   if (action_mgr_->busy()) {
-    RCLCPP_DEBUG(node_->get_logger(), "%s: busy, dropping %s", ns_.c_str(), g_actions[action]);
+    RCLCPP_INFO(node_->get_logger(), "[%s] busy, dropping %s", ns_.c_str(), g_actions[action]);
     return;
   }
 
   State next_state;
-  bool send_to_drone;
-  if (!valid_transition(state_, action, next_state, send_to_drone)) {
-    RCLCPP_DEBUG(node_->get_logger(), "%s: %s not allowed in %s", ns_.c_str(), g_actions[action], g_states[state_]);
+  if (!valid_action_transition(state_, action, next_state)) {
+    RCLCPP_DEBUG(node_->get_logger(), "[%s] %s not allowed in %s", ns_.c_str(), g_actions[action], g_states[state_]);
     return;
   }
 
-  if (send_to_drone) {
-    RCLCPP_INFO(node_->get_logger(), "%s: initiating %s", ns_.c_str(), g_actions[action]);
-    action_mgr_->send(action, g_actions[action]);
-  } else {
-    transition_state(action);
-  }
+  RCLCPP_INFO(node_->get_logger(), "[%s] initiating %s", ns_.c_str(), g_actions[action]);
+  action_mgr_->send(action, g_actions[action]);
 }
 
 void Drone::transition_state(Action action)
 {
   State next_state;
-  bool send_to_drone;
-  if (!valid_transition(state_, action, next_state, send_to_drone)) {
-    RCLCPP_DEBUG(node_->get_logger(), "%s: %s not allowed in %s", ns_.c_str(), g_actions[action], g_states[state_]);
+  if (!valid_action_transition(state_, action, next_state)) {
+    RCLCPP_DEBUG(node_->get_logger(), "[%s] %s not allowed in %s", ns_.c_str(), g_actions[action], g_states[state_]);
     return;
   }
 
-  RCLCPP_INFO(node_->get_logger(), "%s: transition to %s", ns_.c_str(), g_states[next_state]);
-  state_ = next_state;
+  transition_state(next_state);
+}
+
+void Drone::transition_state(Event event)
+{
+  State next_state;
+  if (!valid_event_transition(state_, event, next_state)) {
+    RCLCPP_DEBUG(node_->get_logger(), "[%s] %s not allowed in %s", ns_.c_str(), g_events[event], g_states[state_]);
+    return;
+  }
+
+  transition_state(next_state);
+}
+
+void Drone::transition_state(State next_state)
+{
+  if (state_ != next_state) {
+    RCLCPP_INFO(node_->get_logger(), "[%s] transition to %s", ns_.c_str(), g_states[next_state]);
+    state_ = next_state;
+  }
 }
 
 void Drone::tello_response_callback(tello_msgs::msg::TelloResponse::SharedPtr msg)
@@ -123,29 +178,32 @@ void Drone::tello_response_callback(tello_msgs::msg::TelloResponse::SharedPtr ms
   ActionMgr::State result = action_mgr_->complete(msg);
   if (result == ActionMgr::State::succeeded) {
     transition_state(action_mgr_->action());
-  } else if (result == ActionMgr::State::failed_lost_connection) {
-    transition_state(Action::disconnect);
   }
 }
 
 void Drone::flight_data_callback(tello_msgs::msg::FlightData::SharedPtr msg)
 {
-  prev_flight_data_stamp_ = msg->header.stamp;
-
-  if (state_ == State::unknown) {
-    RCLCPP_INFO(node_->get_logger(), "%s: receiving flight data", ns_.c_str());
-    transition_state(Action::connect);
+  if (!receiving_flight_data()) {
+    transition_state(Event::connected);
   }
+
+  if (msg->bat < MIN_BATTERY && state_ != State::low_battery) {
+    transition_state(Event::low_battery);
+  }
+
+  prev_flight_data_stamp_ = msg->header.stamp;
 }
 
 void Drone::odom_callback(nav_msgs::msg::Odometry::SharedPtr msg)
 {
-  if (!valid(prev_odom_stamp_)) {
-    RCLCPP_INFO(node_->get_logger(), "%s: receiving odom", ns_.c_str());
-    // TODO
-  }
+  // It's possible (but unlikely) to get an odom message before flight data
+  if (receiving_flight_data()) {
+    if (!receiving_odometry()) {
+      transition_state(Event::odometry_started);
+    }
 
-  prev_odom_stamp_ = msg->header.stamp;
+    prev_odom_stamp_ = msg->header.stamp;
+  }
 }
 
 void Drone::set_velocity(double throttle, double strafe, double vertical, double yaw)
@@ -158,22 +216,24 @@ void Drone::set_velocity(double throttle, double strafe, double vertical, double
 
 void Drone::spin_once()
 {
-  if (valid(prev_flight_data_stamp_) && node_->now() - prev_flight_data_stamp_ > FLIGHT_DATA_TIMEOUT) {
-    RCLCPP_ERROR(node_->get_logger(), "%s: lost flight data", ns_.c_str());
+  // Check for flight data timeout
+  if (receiving_flight_data() && node_->now() - prev_flight_data_stamp_ > FLIGHT_DATA_TIMEOUT) {
+    transition_state(Event::disconnected);
     prev_flight_data_stamp_ = rclcpp::Time();
-    // TODO
-  }
-
-  if (valid(prev_odom_stamp_) && node_->now() - prev_odom_stamp_ > ODOM_TIMEOUT) {
-    RCLCPP_ERROR(node_->get_logger(), "%s: lost odometry", ns_.c_str());
     prev_odom_stamp_ = rclcpp::Time();
-    // TODO
   }
 
+  // Check for odometry_started timeout
+  if (receiving_odometry() && node_->now() - prev_odom_stamp_ > ODOM_TIMEOUT) {
+    transition_state(Event::odometry_stopped);
+    prev_odom_stamp_ = rclcpp::Time();
+  }
+
+  // Process any actions
   action_mgr_->spin_once();
 
   // If we're flying manually and the drone isn't busy, send a cmd_vel message
-  if (node_->mission() && state_ == State::flying && !action_mgr_->busy()) {
+  if (node_->mission() && state_ == State::flight && !action_mgr_->busy()) {
     cmd_vel_pub_->publish(twist_);
   }
 }
