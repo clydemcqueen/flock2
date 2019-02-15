@@ -1,8 +1,6 @@
-#include "drone.hpp"
+#include "drone_base.hpp"
 
-#include "flock_base.hpp"
-
-namespace flock_base {
+namespace drone_base {
 
 const rclcpp::Duration FLIGHT_DATA_TIMEOUT{1500000000};   // Nanoseconds
 const rclcpp::Duration ODOM_TIMEOUT{1500000000};          // Nanoseconds
@@ -106,74 +104,134 @@ bool valid_action_transition(const State state, const Action action, State &next
   return false;
 }
 
-Drone::Drone(FlockBase *node, std::string ns) : node_{node}, ns_{ns}
+DroneBase::DroneBase() : Node{"drone_base"}
 {
-  std::string pre = ns_.empty() ? "" : ns_ + "/";
+  action_mgr_ = std::make_unique<ActionMgr>(get_logger(),
+    create_client<tello_msgs::srv::TelloAction>("tello_action"));
 
-  action_mgr_ = std::make_unique<ActionMgr>(ns_, node_->get_logger(),
-    node_->create_client<tello_msgs::srv::TelloAction>(pre + "tello_action"));
+  cmd_vel_pub_ = create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 1);
 
-  cmd_vel_pub_ = node_->create_publisher<geometry_msgs::msg::Twist>(pre + "cmd_vel", 1);
+  auto tello_response_cb = std::bind(&DroneBase::tello_response_callback, this, std::placeholders::_1);
+  auto flight_data_cb = std::bind(&DroneBase::flight_data_callback, this, std::placeholders::_1);
+  auto odom_cb = std::bind(&DroneBase::odom_callback, this, std::placeholders::_1);
 
-  auto tello_response_cb = std::bind(&Drone::tello_response_callback, this, std::placeholders::_1);
-  auto flight_data_cb = std::bind(&Drone::flight_data_callback, this, std::placeholders::_1);
-  auto odom_cb = std::bind(&Drone::odom_callback, this, std::placeholders::_1);
+  tello_response_sub_ = create_subscription<tello_msgs::msg::TelloResponse>("tello_response", tello_response_cb);
+  flight_data_sub_ = create_subscription<tello_msgs::msg::FlightData>("flight_data", flight_data_cb);
+  odom_sub_ = create_subscription<nav_msgs::msg::Odometry>("filtered_odom", odom_cb);
 
-  tello_response_sub_ = node_->create_subscription<tello_msgs::msg::TelloResponse>(pre + "tello_response", tello_response_cb);
-  flight_data_sub_ = node_->create_subscription<tello_msgs::msg::FlightData>(pre + "flight_data", flight_data_cb);
-  odom_sub_ = node_->create_subscription<nav_msgs::msg::Odometry>(pre + "filtered_odom", odom_cb);
-
-  RCLCPP_INFO(node_->get_logger(), "[%s] drone initialized", ns_.c_str());
+  RCLCPP_INFO(get_logger(), "drone initialized");
 }
 
-void Drone::start_action(Action action)
+void DroneBase::start_action(Action action)
 {
   if (action_mgr_->busy()) {
-    RCLCPP_INFO(node_->get_logger(), "[%s] busy, dropping %s", ns_.c_str(), g_actions[action]);
+    RCLCPP_INFO(get_logger(), "busy, dropping %s", g_actions[action]);
     return;
   }
 
   State next_state;
   if (!valid_action_transition(state_, action, next_state)) {
-    RCLCPP_DEBUG(node_->get_logger(), "[%s] %s not allowed in %s", ns_.c_str(), g_actions[action], g_states[state_]);
+    RCLCPP_DEBUG(get_logger(), "%s not allowed in %s", g_actions[action], g_states[state_]);
     return;
   }
 
-  RCLCPP_INFO(node_->get_logger(), "[%s] initiating %s", ns_.c_str(), g_actions[action]);
+  RCLCPP_INFO(get_logger(), "initiating %s", g_actions[action]);
   action_mgr_->send(action, g_actions[action]);
 }
 
-void Drone::transition_state(Action action)
+void DroneBase::transition_state(Action action)
 {
   State next_state;
   if (!valid_action_transition(state_, action, next_state)) {
-    RCLCPP_DEBUG(node_->get_logger(), "[%s] %s not allowed in %s", ns_.c_str(), g_actions[action], g_states[state_]);
+    RCLCPP_DEBUG(get_logger(), "%s not allowed in %s", g_actions[action], g_states[state_]);
     return;
   }
 
   transition_state(next_state);
 }
 
-void Drone::transition_state(Event event)
+void DroneBase::transition_state(Event event)
 {
   State next_state;
   if (!valid_event_transition(state_, event, next_state)) {
-    RCLCPP_DEBUG(node_->get_logger(), "[%s] %s not allowed in %s", ns_.c_str(), g_events[event], g_states[state_]);
+    RCLCPP_DEBUG(get_logger(), "%s not allowed in %s", g_events[event], g_states[state_]);
     return;
   }
 
   transition_state(next_state);
 }
 
-void Drone::transition_state(State next_state)
+void DroneBase::transition_state(State next_state)
 {
   if (state_ != next_state) {
-    RCLCPP_INFO(node_->get_logger(), "[%s] transition to %s", ns_.c_str(), g_states[next_state]);
+    RCLCPP_INFO(get_logger(), "transition to %s", g_states[next_state]);
     state_ = next_state;
   }
 }
 
-void Drone::tello_response_callback(tello_msgs::msg::TelloResponse::SharedPtr msg)
+inline bool button_down(const sensor_msgs::msg::Joy::SharedPtr curr, const sensor_msgs::msg::Joy &prev, int index)
+{
+  return curr->buttons[index] && !prev.buttons[index];
+}
+
+void DroneBase::joy_callback(sensor_msgs::msg::Joy::SharedPtr msg)
+{
+  static sensor_msgs::msg::Joy prev_msg;
+
+  // Ignore the joystick if we're in a mission
+  if (mission_) {
+    prev_msg = *msg;
+    return;
+  }
+
+  // Takeoff/land
+  if (button_down(msg, prev_msg, joy_button_takeoff_)) {
+    start_action(Action::takeoff);
+  } else if (button_down(msg, prev_msg, joy_button_land_)) {
+    start_action(Action::land);
+  }
+
+  // Trim (slow, steady) mode vs. joystick mode
+  if (msg->axes[joy_axis_trim_lr_] || msg->axes[joy_axis_trim_fb_]) {
+    const static double TRIM_SPEED{0.2};
+    double throttle{0}, strafe{0}, vertical{0}, yaw{0};
+    if (msg->axes[joy_axis_trim_lr_]) {
+      if (msg->buttons[joy_button_shift_]) {
+        yaw = TRIM_SPEED * msg->axes[joy_axis_trim_lr_];
+      } else {
+        strafe = TRIM_SPEED * msg->axes[joy_axis_trim_lr_];
+      }
+    }
+    if (msg->axes[joy_axis_trim_fb_]) {
+      if (msg->buttons[joy_button_shift_]) {
+        throttle = TRIM_SPEED * msg->axes[joy_axis_trim_fb_];
+      } else {
+        vertical = TRIM_SPEED * msg->axes[joy_axis_trim_fb_];
+      }
+    }
+    set_velocity(throttle, strafe, vertical, yaw);
+  } else {
+    set_velocity(
+      msg->axes[joy_axis_throttle_],
+      msg->axes[joy_axis_strafe_],
+      msg->axes[joy_axis_vertical_],
+      msg->axes[joy_axis_yaw_]);
+  }
+
+  prev_msg = *msg;
+}
+
+void DroneBase::start_mission_callback(std_msgs::msg::Empty::SharedPtr msg)
+{
+  mission_ = true;
+}
+
+void DroneBase::stop_mission_callback(std_msgs::msg::Empty::SharedPtr msg)
+{
+  mission_ = false;
+}
+
+void DroneBase::tello_response_callback(tello_msgs::msg::TelloResponse::SharedPtr msg)
 {
   ActionMgr::State result = action_mgr_->complete(msg);
   if (result == ActionMgr::State::succeeded) {
@@ -181,7 +239,7 @@ void Drone::tello_response_callback(tello_msgs::msg::TelloResponse::SharedPtr ms
   }
 }
 
-void Drone::flight_data_callback(tello_msgs::msg::FlightData::SharedPtr msg)
+void DroneBase::flight_data_callback(tello_msgs::msg::FlightData::SharedPtr msg)
 {
   if (!receiving_flight_data()) {
     transition_state(Event::connected);
@@ -194,7 +252,7 @@ void Drone::flight_data_callback(tello_msgs::msg::FlightData::SharedPtr msg)
   prev_flight_data_stamp_ = msg->header.stamp;
 }
 
-void Drone::odom_callback(nav_msgs::msg::Odometry::SharedPtr msg)
+void DroneBase::odom_callback(nav_msgs::msg::Odometry::SharedPtr msg)
 {
   // It's possible (but unlikely) to get an odom message before flight data
   if (receiving_flight_data()) {
@@ -206,7 +264,7 @@ void Drone::odom_callback(nav_msgs::msg::Odometry::SharedPtr msg)
   }
 }
 
-void Drone::set_velocity(double throttle, double strafe, double vertical, double yaw)
+void DroneBase::set_velocity(double throttle, double strafe, double vertical, double yaw)
 {
   twist_.linear.x = throttle;
   twist_.linear.y = strafe;
@@ -214,17 +272,17 @@ void Drone::set_velocity(double throttle, double strafe, double vertical, double
   twist_.angular.z = yaw;
 }
 
-void Drone::spin_once()
+void DroneBase::spin_once()
 {
   // Check for flight data timeout
-  if (receiving_flight_data() && node_->now() - prev_flight_data_stamp_ > FLIGHT_DATA_TIMEOUT) {
+  if (receiving_flight_data() && now() - prev_flight_data_stamp_ > FLIGHT_DATA_TIMEOUT) {
     transition_state(Event::disconnected);
     prev_flight_data_stamp_ = rclcpp::Time();
     prev_odom_stamp_ = rclcpp::Time();
   }
 
   // Check for odometry_started timeout
-  if (receiving_odometry() && node_->now() - prev_odom_stamp_ > ODOM_TIMEOUT) {
+  if (receiving_odometry() && now() - prev_odom_stamp_ > ODOM_TIMEOUT) {
     transition_state(Event::odometry_stopped);
     prev_odom_stamp_ = rclcpp::Time();
   }
@@ -233,9 +291,40 @@ void Drone::spin_once()
   action_mgr_->spin_once();
 
   // If we're flying manually and the drone isn't busy, send a cmd_vel message
-  if (node_->mission() && state_ == State::flight && !action_mgr_->busy()) {
+  if (!mission_ && state_ == State::flight && !action_mgr_->busy()) {
     cmd_vel_pub_->publish(twist_);
   }
 }
 
-} // namespace flock_base
+} // namespace drone_base
+
+int main(int argc, char **argv)
+{
+  // Force flush of the stdout buffer
+  setvbuf(stdout, NULL, _IONBF, BUFSIZ);
+
+  // Init ROS
+  rclcpp::init(argc, argv);
+
+  // Create node
+  auto node = std::make_shared<drone_base::DroneBase>();
+  auto result = rcutils_logging_set_logger_level(node->get_logger().get_name(), RCUTILS_LOG_SEVERITY_INFO);
+
+  rclcpp::Rate r(20);
+  while (rclcpp::ok())
+  {
+    // Do our work
+    node->spin_once();
+
+    // Respond to incoming messages
+    rclcpp::spin_some(node);
+
+    // Wait
+    r.sleep();
+  }
+
+  // Shut down ROS
+  rclcpp::shutdown();
+
+  return 0;
+}

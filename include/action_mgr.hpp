@@ -5,14 +5,14 @@
 #include "tello_msgs/srv/tello_action.hpp"
 #include "tello_msgs/msg/tello_response.hpp"
 
-namespace flock_base {
+namespace drone_base {
 
 //==========================
 // tello_driver uses a ROS service plus a ROS topic to simulate an action.
 // This may be replaced when support for actions is completed in ROS2 Dashing.
 //
 // Overall flow:
-// 1. flock_base sends a TelloAction::Request on the tello_action service
+// 1. drone_base sends a TelloAction::Request on the tello_action service
 // 2. the drone responds with a TelloAction::Response
 // 3. later, the drone sends a TelloResponse message on the tello_response topic
 //
@@ -38,7 +38,6 @@ public:
 private:
 
   // Init by constructor
-  std::string ns_;
   rclcpp::Logger logger_;
   rclcpp::Client<tello_msgs::srv::TelloAction>::SharedPtr client_;
   State state_ = State::not_sent;
@@ -51,8 +50,8 @@ private:
 
 public:
 
-  explicit ActionMgr(std::string ns, rclcpp::Logger logger, rclcpp::Client<tello_msgs::srv::TelloAction>::SharedPtr client):
-  ns_{ns}, logger_{logger}, client_{client}
+  explicit ActionMgr(rclcpp::Logger logger, rclcpp::Client<tello_msgs::srv::TelloAction>::SharedPtr client):
+  logger_{logger}, client_{client}
   {}
 
   ~ActionMgr()
@@ -69,7 +68,7 @@ public:
   bool busy() { return state_ == State::waiting_for_future || state_ == State::waiting_for_response; }
 };
 
-} // namespace flock_base
+} // namespace drone_base
 
 #endif // ACTION_MGR_H
 

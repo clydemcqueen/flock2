@@ -84,8 +84,6 @@ include_directories(
 add_executable(
   flock_base
   src/flock_base.cpp
-  src/action_mgr.cpp
-  src/drone.cpp
 )
 
 # Required because flock_base uses custom messages defined in the same project
@@ -97,11 +95,29 @@ rosidl_target_interfaces(
 
 ament_target_dependencies(
   flock_base
+  rclcpp
+  sensor_msgs
+  std_msgs
+)
+
+#=============
+# Drone base node
+#=============
+
+add_executable(
+  drone_base
+  src/drone_base.cpp
+  src/action_mgr.cpp
+)
+
+ament_target_dependencies(
+  drone_base
   geometry_msgs
   nav_msgs
   rclcpp
+  sendor_msgs
+  std_msgs
   tello_msgs
-  sensor_msgs
 )
 
 #=============
@@ -144,6 +160,7 @@ ament_target_dependencies(
 install(
   TARGETS
   flock_base
+  drone_base
   usb_camera
   filter_node
   DESTINATION lib/${PROJECT_NAME}

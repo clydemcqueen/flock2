@@ -1,14 +1,17 @@
-#ifndef DRONE_H
-#define DRONE_H
+#ifndef DRONE_BASE_H
+#define DRONE_BASE_H
 
+#include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "sensor_msgs/msg/joy.hpp"
+#include "std_msgs/msg/empty.hpp"
 #include "tello_msgs/msg/flight_data.hpp"
 
+#include "joystick.hpp"
 #include "action_mgr.hpp"
 
-namespace flock_base {
+namespace drone_base {
 
 // Flight states
 enum class State
@@ -38,17 +41,10 @@ enum class Action
   land,
 };
 
-class FlockBase;
-
-class Drone
+class DroneBase : public rclcpp::Node
 {
-  // ROS node, for logging, setting up pubs and subs, etc.
-  FlockBase *node_;
-
-  // ROS topic namespace for this drone
-  std::string ns_;
-
   // Drone state
+  bool mission_ = false;
   rclcpp::Time prev_flight_data_stamp_;
   rclcpp::Time prev_odom_stamp_;
   State state_ = State::unknown;
@@ -59,21 +55,33 @@ class Drone
   // Target velocity
   geometry_msgs::msg::Twist twist_;
 
+  // Joystick assignments
+  int joy_axis_throttle_ = JOY_AXIS_RIGHT_FB;
+  int joy_axis_strafe_ = JOY_AXIS_RIGHT_LR;
+  int joy_axis_vertical_ = JOY_AXIS_LEFT_FB;
+  int joy_axis_yaw_ = JOY_AXIS_LEFT_LR;
+  int joy_button_takeoff_ = JOY_BUTTON_MENU;
+  int joy_button_land_ = JOY_BUTTON_VIEW;
+  int joy_button_shift_ = JOY_BUTTON_LEFT_BUMPER;
+  int joy_axis_trim_lr_ = JOY_AXIS_TRIM_LR;
+  int joy_axis_trim_fb_ = JOY_AXIS_TRIM_FB;
+
   // Publications
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
 
   // Subscriptions
+  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr start_mission_sub_;
+  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr stop_mission_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_sub_;
   rclcpp::Subscription<tello_msgs::msg::TelloResponse>::SharedPtr tello_response_sub_;
   rclcpp::Subscription<tello_msgs::msg::FlightData>::SharedPtr flight_data_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
 
 public:
 
-  explicit Drone(FlockBase *node, std::string ns);
-  explicit Drone(FlockBase *node) : Drone(node, "") {}
-  ~Drone() {}
+  explicit DroneBase();
+  ~DroneBase() {}
 
-  std::string ns() { return ns_; }
   bool receiving_flight_data() { return prev_flight_data_stamp_.nanoseconds() > 0; }
   bool receiving_odometry() { return prev_odom_stamp_.nanoseconds() > 0; }
 
@@ -91,11 +99,14 @@ private:
   void transition_state(Event event);
   void transition_state(State next_state);
 
+  void joy_callback(sensor_msgs::msg::Joy::SharedPtr msg);
+  void start_mission_callback(std_msgs::msg::Empty::SharedPtr msg);
+  void stop_mission_callback(std_msgs::msg::Empty::SharedPtr msg);
   void tello_response_callback(tello_msgs::msg::TelloResponse::SharedPtr msg);
   void flight_data_callback(tello_msgs::msg::FlightData::SharedPtr msg);
   void odom_callback(nav_msgs::msg::Odometry::SharedPtr msg);
 };
 
-} // namespace flock_base
+} // namespace drone_base
 
-#endif // DRONE_H
+#endif // DRONE_BASE_H
