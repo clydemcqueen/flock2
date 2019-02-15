@@ -1,16 +1,9 @@
-# An Arena defines a volume of space with all features useful for global planning
+# An Arena defines the volume of space used for flying a flock of drones
 
 std_msgs/Header header
 
-# The arena volume. z_min is always 0
-float64 x_min
-float64 x_max
-float64 y_min
-float64 y_max
-float64 z_max
+# Arena is the right rectangular prism defined by (0, 0, 0) and extent
+geometry_msgs/Point extent
 
-# Each drone has a landing pad
-geometry_msgs/Point[] landing_pads
-
-# Location of ArUco markers
-flock_vlam_msgs/Map map
+# Location of marker 1 in the arena
+geometry_msgs/Pose marker1_pose

@@ -1,8 +1,0 @@
-# Request a detailed path for a single drone
-
-std_msgs/Header header
-nav_msgs/Path waypoints
-
----
-
-nav_msgs/Path path

@@ -58,9 +58,8 @@ find_package(visualization_msgs REQUIRED)
 rosidl_generate_interfaces(
   ${PROJECT_NAME}
   msg/Arena.msg
-  srv/GetGlobalPlan.srv
-  srv/GetLocalPlan.srv
-  DEPENDENCIES flock_vlam_msgs geometry_msgs nav_msgs std_msgs
+  msg/Waypoints.msg
+  DEPENDENCIES geometry_msgs nav_msgs std_msgs
 )
 
 # Local includes

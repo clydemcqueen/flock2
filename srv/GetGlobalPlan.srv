@@ -1,8 +1,0 @@
-# Request a set of waypoints for each drone
-
-std_msgs/Header header
-flock2/Arena arena
-
----
-
-nav_msgs/Path[] waypoints
