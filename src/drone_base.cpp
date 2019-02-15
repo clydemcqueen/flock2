@@ -111,10 +111,16 @@ DroneBase::DroneBase() : Node{"drone_base"}
 
   cmd_vel_pub_ = create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 1);
 
+  auto joy_cb = std::bind(&DroneBase::joy_callback, this, std::placeholders::_1);
+  auto start_mission_cb = std::bind(&DroneBase::start_mission_callback, this, std::placeholders::_1);
+  auto stop_mission_cb = std::bind(&DroneBase::stop_mission_callback, this, std::placeholders::_1);
   auto tello_response_cb = std::bind(&DroneBase::tello_response_callback, this, std::placeholders::_1);
   auto flight_data_cb = std::bind(&DroneBase::flight_data_callback, this, std::placeholders::_1);
   auto odom_cb = std::bind(&DroneBase::odom_callback, this, std::placeholders::_1);
 
+  start_mission_sub_ = create_subscription<std_msgs::msg::Empty>("/start_mission", start_mission_cb);
+  stop_mission_sub_ = create_subscription<std_msgs::msg::Empty>("/stop_mission", stop_mission_cb);
+  joy_sub_ = create_subscription<sensor_msgs::msg::Joy>("joy", joy_cb);
   tello_response_sub_ = create_subscription<tello_msgs::msg::TelloResponse>("tello_response", tello_response_cb);
   flight_data_sub_ = create_subscription<tello_msgs::msg::FlightData>("flight_data", flight_data_cb);
   odom_sub_ = create_subscription<nav_msgs::msg::Odometry>("filtered_odom", odom_cb);
@@ -174,6 +180,20 @@ inline bool button_down(const sensor_msgs::msg::Joy::SharedPtr curr, const senso
   return curr->buttons[index] && !prev.buttons[index];
 }
 
+void DroneBase::start_mission_callback(std_msgs::msg::Empty::SharedPtr msg)
+{
+  (void)msg;
+
+  mission_ = true;
+}
+
+void DroneBase::stop_mission_callback(std_msgs::msg::Empty::SharedPtr msg)
+{
+  (void)msg;
+
+  mission_ = false;
+}
+
 void DroneBase::joy_callback(sensor_msgs::msg::Joy::SharedPtr msg)
 {
   static sensor_msgs::msg::Joy prev_msg;
@@ -219,16 +239,6 @@ void DroneBase::joy_callback(sensor_msgs::msg::Joy::SharedPtr msg)
   }
 
   prev_msg = *msg;
-}
-
-void DroneBase::start_mission_callback(std_msgs::msg::Empty::SharedPtr msg)
-{
-  mission_ = true;
-}
-
-void DroneBase::stop_mission_callback(std_msgs::msg::Empty::SharedPtr msg)
-{
-  mission_ = false;
 }
 
 void DroneBase::tello_response_callback(tello_msgs::msg::TelloResponse::SharedPtr msg)

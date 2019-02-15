@@ -87,6 +87,7 @@ add_executable(
 )
 
 # Required because flock_base uses custom messages defined in the same project
+# TODO can remove this if arena.msg is deleted
 rosidl_target_interfaces(
   flock_base
   ${PROJECT_NAME}
@@ -110,12 +111,19 @@ add_executable(
   src/action_mgr.cpp
 )
 
+# Required because drone_base uses custom messages defined in the same project
+rosidl_target_interfaces(
+  flock_base
+  ${PROJECT_NAME}
+  rosidl_typesupport_cpp
+)
+
 ament_target_dependencies(
   drone_base
   geometry_msgs
   nav_msgs
   rclcpp
-  sendor_msgs
+  sensor_msgs
   std_msgs
   tello_msgs
 )
