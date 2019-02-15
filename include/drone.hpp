@@ -2,30 +2,40 @@
 #define DRONE_H
 
 #include "geometry_msgs/msg/twist.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 #include "sensor_msgs/msg/joy.hpp"
-#include "std_msgs/msg/empty.hpp"
 #include "tello_msgs/msg/flight_data.hpp"
 
 #include "action_mgr.hpp"
 
 namespace flock_base {
 
+// Flight states
 enum class State
 {
-  unknown,
-  landed,
-  fly_manual,
-  fly_mission,
+  unknown,        // No flight data
+  ready,          // Ready for manual flight
+  flight,         // Flying (autonomous operation not available)
+  ready_odom,     // Ready for manual or autonomous flight
+  flight_odom,    // Flying (autonomous operation available)
+  low_battery,    // Low battery (must be swapped)
 };
 
+// Events happen
+enum class Event
+{
+  connected,        // Connected to the drone
+  disconnected,     // Lost the connection
+  odometry_started, // Odometry started
+  odometry_stopped, // Odometry stopped
+  low_battery,      // Low battery detected
+};
+
+// The user or autonomous controller can take actions
 enum class Action
 {
   takeoff,
   land,
-  start_mission,
-  stop_mission,
-  connect,
-  disconnect,
 };
 
 class FlockBase;
@@ -38,7 +48,9 @@ class Drone
   // ROS topic namespace for this drone
   std::string ns_;
 
-  // Flight state
+  // Drone state
+  rclcpp::Time prev_flight_data_stamp_;
+  rclcpp::Time prev_odom_stamp_;
   State state_ = State::unknown;
 
   // Drone action manager
@@ -48,13 +60,12 @@ class Drone
   geometry_msgs::msg::Twist twist_;
 
   // Publications
-  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr start_mission_pub_;
-  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr stop_mission_pub_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
 
   // Subscriptions
   rclcpp::Subscription<tello_msgs::msg::TelloResponse>::SharedPtr tello_response_sub_;
   rclcpp::Subscription<tello_msgs::msg::FlightData>::SharedPtr flight_data_sub_;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
 
 public:
 
@@ -63,6 +74,8 @@ public:
   ~Drone() {}
 
   std::string ns() { return ns_; }
+  bool receiving_flight_data() { return prev_flight_data_stamp_.nanoseconds() > 0; }
+  bool receiving_odometry() { return prev_odom_stamp_.nanoseconds() > 0; }
 
   // Start an action. Can be called from a ROS callback: fast, doesn't block.
   void start_action(Action action);
@@ -75,9 +88,12 @@ private:
 
   // Transition to a new state.
   void transition_state(Action action);
+  void transition_state(Event event);
+  void transition_state(State next_state);
 
   void tello_response_callback(tello_msgs::msg::TelloResponse::SharedPtr msg);
   void flight_data_callback(tello_msgs::msg::FlightData::SharedPtr msg);
+  void odom_callback(nav_msgs::msg::Odometry::SharedPtr msg);
 };
 
 } // namespace flock_base

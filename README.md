@@ -22,12 +22,13 @@ Controls a flock of Tello drones.
 * `~joy` [sensor_msgs/Joy](http://docs.ros.org/api/sensor_msgs/html/msg/Joy.html)
 * `~[prefix/]tello_response` tello_msgs/TelloResponse
 * `~[prefix/]flight_data` tello_msgs/FlightData
+* `~[prefix/]filtered_odom` [nav_msgs/Odometry](http://docs.ros.org/api/nav_msgs/html/msg/Odometry.html)
 
 #### Published topics
 
 * `~[prefix/]cmd_vel` [geometry_msgs/Twist](http://docs.ros.org/api/geometry_msgs/html/msg/Twist.html)
-* `~[prefix/]start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
-* `~[prefix/]stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `/start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `/stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
 
 #### Published services
 
@@ -37,7 +38,7 @@ Controls a flock of Tello drones.
 
 * `drones` is an array of strings, where each string is a topic prefix
 
-### filter
+### filter_node
 
 Uses a Kalman filter to estimate pose and velocity.
 The estimate is published on the `filtered_odom` topic.
@@ -48,8 +49,8 @@ Publishes the estimated path during a mission.
 
 #### Subscribed topics
 
-* `~start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
-* `~stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `/start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `/stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
 * `~camera_pose` [geometry_msgs/PoseWithCovarianceStamped](http://docs.ros.org/api/geometry_msgs/html/msg/PoseWithCovarianceStamped.html)
 
 #### Published topics
@@ -70,8 +71,8 @@ Send `start_mission` to run the mission, and `stop_mission` to stop it.
 
 #### Subscribed topics
 
-* `~start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
-* `~stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `/start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `/stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
 * `/tf` [tf2_msgs/TFMessage](http://docs.ros.org/api/tf2_msgs/html/msg/TFMessage.html)
 
 #### Published topics
@@ -99,15 +100,15 @@ Use your favorite Python package manager to set up Python 3.6+ and the following
 
 ### 3. Set up your ROS environment
 
-[Install ROS2 Crystal Clemmys](https://github.com/ros2/ros2/wiki/Installation) with the `ros-crystal-desktop` option.
+[Install ROS2 Crystal Clemmys](https://index.ros.org/doc/ros2/Installation/) with the `ros-crystal-desktop` option.
 
 If you install binaries, be sure to also install the 
-[development tools and ROS tools](https://github.com/ros2/ros2/wiki/Linux-Development-Setup#install-development-tools-and-ros-tools)
+[development tools and ROS tools](https://index.ros.org/doc/ros2/Installation/Linux-Development-Setup/)
 from the source installation instructions.
 
 Install these additional packages:
 ~~~
-sudo apt install ros-crystal-joystick-drivers ros-crystal-cv-bridge
+sudo apt install ros-crystal-cv-bridge
 ~~~
 
 ### 4. Install flock2, flock_vlam and tello_ros
@@ -150,11 +151,13 @@ Key controls:
 * If `drones` has length 1, a single drone object is created with the specified prefix.
 * If `drones` has length N, N drones are created with the specified prefixes.
 
-For example, if the `drone` parameter is set to `['foo', 'bar']` then 2 drones will be created,
+For example, if the `drone` parameter is set to `['foo', 'bar']` then 2 drone objects will be created,
 and the drones will publish velocity commands on topics `foo/cmd_vel` and `bar/cmd_vel`.
 
 The joystick can control one drone at a time.
 Hitting the right bumper will select a different drone to control.
+
+All drones participate in a mission.
 
 You'll need a network configuration that allows you to connect to multiple Tello drones.
 You may want to use a port forwarding solution such as 

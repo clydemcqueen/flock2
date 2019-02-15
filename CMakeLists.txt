@@ -22,6 +22,7 @@ if($ENV{CLION_IDE})
   set(FastRTPS_INCLUDE_DIR "/opt/ros/crystal/include")
   set(FastRTPS_LIBRARY_RELEASE "/opt/ros/crystal/lib/libfastrtps.so")
   set(tello_msgs_DIR "${PROJECT_SOURCE_DIR}/../../install/tello_msgs/share/tello_msgs/cmake")
+  set(flock_vlam_msgs_DIR "${PROJECT_SOURCE_DIR}/../../install/flock_vlam_msgs/share/flock_vlam_msgs/cmake")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DRUN_INSIDE_CLION")
 endif()
 
@@ -40,21 +41,34 @@ find_package(ament_cmake REQUIRED)
 find_package(builtin_interfaces REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(Eigen3)
+find_package(flock_vlam_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
+find_package(rosidl_cmake REQUIRED)               # Required to define and use custom messages in the same project
+find_package(rosidl_default_generators REQUIRED)  # Required to define and use custom messages in the same project
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(tello_msgs REQUIRED)
 find_package(tf2_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 
+# Generate ROS messages
+rosidl_generate_interfaces(
+  ${PROJECT_NAME}
+  msg/Arena.msg
+  srv/GetGlobalPlan.srv
+  srv/GetLocalPlan.srv
+  DEPENDENCIES flock_vlam_msgs geometry_msgs nav_msgs std_msgs
+)
+
 # Local includes
 include_directories(
   include
   ${cv_bridge_INCLUDE_DIRS}
   ${Eigen3_INCLUDE_DIRS}
+  ${flock_vlam_msgs_INCLUDE_DIRS}
   ${geometry_msgs_INCLUDE_DIRS}
   ${nav_msgs_INCLUDE_DIRS}
   ${rclcpp_INCLUDE_DIRS}
@@ -68,11 +82,24 @@ include_directories(
 # Flock base node
 #=============
 
-add_executable(flock_base src/flock_base.cpp src/action_mgr.cpp src/drone.cpp)
+add_executable(
+  flock_base
+  src/flock_base.cpp
+  src/action_mgr.cpp
+  src/drone.cpp
+)
+
+# Required because flock_base uses custom messages defined in the same project
+rosidl_target_interfaces(
+  flock_base
+  ${PROJECT_NAME}
+  rosidl_typesupport_cpp
+)
 
 ament_target_dependencies(
   flock_base
   geometry_msgs
+  nav_msgs
   rclcpp
   tello_msgs
   sensor_msgs
@@ -92,6 +119,25 @@ ament_target_dependencies(
 )
 
 #=============
+# Filter node
+#=============
+
+add_executable(
+  filter_node
+  src/filter_node.cpp
+  src/kf.cpp
+)
+
+ament_target_dependencies(
+  filter_node
+  geometry_msgs
+  nav_msgs
+  rclcpp
+  std_msgs
+  tf2_msgs
+)
+
+#=============
 # Install
 #=============
 
@@ -100,18 +146,17 @@ install(
   TARGETS
   flock_base
   usb_camera
-  DESTINATION lib/flock2
+  filter_node
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 # Install all Python programs
 install(
   PROGRAMS  # PROGRAMS sets execute bits, FILES clears them
-  src/filter.py
   src/flock_simple_path.py
-  src/kf.py
   src/smooth_path_4poly_2min.py
   src/util.py
-  DESTINATION lib/flock2
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 # Install cfg, launch and urdf directories
@@ -120,7 +165,7 @@ install(
   cfg
   launch
   urdf
-  DESTINATION share/flock2
+  DESTINATION share/${PROJECT_NAME}
 )
 
 ament_package()
