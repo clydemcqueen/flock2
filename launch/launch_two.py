@@ -49,11 +49,13 @@ def generate_launch_description():
 
     return LaunchDescription([
         # Rviz
-        ExecuteProcess(cmd=['rviz2', '-d', 'install/flock2/share/flock2/launch/default.rviz'], output='screen'),
+        ExecuteProcess(cmd=['rviz2', '-d', 'install/flock2/share/flock2/launch/two.rviz'], output='screen'),
 
         # Publish N sets of static transforms
-        Node(package='robot_state_publisher', node_executable='robot_state_publisher', output='screen', arguments=[urdf1]),
-        Node(package='robot_state_publisher', node_executable='robot_state_publisher', output='screen', arguments=[urdf2]),
+        Node(package='robot_state_publisher', node_executable='robot_state_publisher', output='screen',
+             arguments=[urdf1]),
+        Node(package='robot_state_publisher', node_executable='robot_state_publisher', output='screen',
+             arguments=[urdf2]),
 
         # N drivers
         Node(package='tello_driver', node_executable='tello_driver', output='screen',
@@ -61,14 +63,20 @@ def generate_launch_description():
         Node(package='tello_driver', node_executable='tello_driver', output='screen',
              node_name='driver2', node_namespace=dr2_ns, parameters=dr2_params),
 
-        # One joystick
+        # Joystick
         Node(package='joy', node_executable='joy_node', output='screen'),
 
-        # One flock controller
+        # Flock controller
         Node(package='flock2', node_executable='flock_base', output='screen',
              node_name='flock_base', parameters=base_params),
 
-        # One mapper
+        # N drone controllers
+        Node(package='flock2', node_executable='drone_base', output='screen',
+             node_name='base1', node_namespace=dr1_ns),
+        Node(package='flock2', node_executable='drone_base', output='screen',
+             node_name='base2', node_namespace=dr2_ns),
+
+        # Mapper
         Node(package='flock_vlam', node_executable='vmap_node', output='screen'),
 
         # N visual localizers
