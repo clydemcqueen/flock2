@@ -66,10 +66,6 @@ Gamepad controls:
 * B to start mission
 * A to stop mission
  
-### Defining a mission
-
-TODO
-
 ### Flying multiple drones
 
 `launch_two.py` provides an example for flying multiple drones.
@@ -88,35 +84,75 @@ Per-drone nodes such as `drone_base` should have 1 instance running per drone.
 
 ## Design
 
-### TF Tree
+### Coordinate frames
 
+[ROS world coordinate frames](http://www.ros.org/reps/rep-0103.html) are ENU (East, North, Up).
+
+There are 3 significant coordinate frames in `flock2`:
 * The world frame is `map`
 * Each drone has a base coordinate frame. The default for 1 drone is `base_link`
 * Each drone has a camera coordinate frame. The default for 1 drone is `camera_frame`
 
-### Orchestration: `flock_base`
+### The arena
+
+An arena is a right rectangular prism defined by 2 points: (x1=0, y1=0, z1=0) and (x2, y2, z2).
+z1 defines the ground, so z2 must be positive.
+The ground must be flat.
+Drones will never fly outside of the arena.
+
+There must be at least one 6x6 ArUco marker, with id 1, associated with the arena.
+Marker 1's pose is known in advance, the other ArUco marker poses are estimated during flight.
+The drones will use ArUco marker poses to estimate their current pose.
+
+### The mission
+
+A mission is defined as autonomous flight by all drones.
+A mission is initiated when the user hits the _start mission_ button on the gamepad.
+A mission will end on it's own, or when the user hits the _stop mission_ button.
+
+All drones must be able to localize on the ground to start a mission.
+In practice this means that all drones must be able to see marker 1 while sitting on the ground,
+or at least one drone has to be flown around manually to build a good map before the mission starts.
+
+The overall mission dataflow looks like this:
+
+1. `flock_base` publishes a message on the `/start_mission` topic
+2. `simple_planner.py` generates an overall pattern of flight for all drones, and publishes a 
+sequence waypoints for each drone on `/[prefix]/global_plan`
+3. `local_planner.py` subscribes to `~global_plan`, turns the waypoints into a detailed flight path,
+and publishes it on `~local_plan`
+4. `drone_base` subscribes to `~local_plan` and `~filtered_odometry`, runs a PID controller,
+and sends commands to `tello_ros`
+
+If odometry stops arriving `drone_base` will execute a series of recovery tasks, which might include landing.
+
+If flight indicates that a drone has a low battery `drone_base` will land the drone.
+
+### Node details
+
+#### flock_base
 
 Orchestrates the flight of one or more Tello drones.
 
-#### Subscribed topics
+##### Subscribed topics
 
 * `~joy` [sensor_msgs/Joy](http://docs.ros.org/api/sensor_msgs/html/msg/Joy.html)
 
-#### Published topics
+##### Published topics
 
 * `/start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
 * `/stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
 * `~[prefix]/joy` [sensor_msgs/Joy](http://docs.ros.org/api/sensor_msgs/html/msg/Joy.html)
 
-#### Parameters
+##### Parameters
 
 * `drones` is an array of strings, where each string is a topic prefix
 
-### Drone controller: `drone_base`
+#### drone_base
 
 Controls a single Tello drone. Akin to `move_base` in the ROS navigation stack.
 
-#### Subscribed topics
+##### Subscribed topics
 
 * `/start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
 * `/stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
@@ -125,40 +161,70 @@ Controls a single Tello drone. Akin to `move_base` in the ROS navigation stack.
 * `~flight_data` tello_msgs/FlightData
 * `~filtered_odom` [nav_msgs/Odometry](http://docs.ros.org/api/nav_msgs/html/msg/Odometry.html)
 
-#### Published topics
+##### Published topics
 
 * `~cmd_vel` [geometry_msgs/Twist](http://docs.ros.org/api/geometry_msgs/html/msg/Twist.html)
 
-#### Published services
+##### Published services
 
 * `~tello_command` tello_msgs/TelloCommand
 
-### Odometry estimator: `filter_node`
+#### filter_node
 
 `flock_vlam` computes a camera pose from ArUco markers placed in the environment,
-and `filter_node` uses a Kalman filter to estimate odometry.
+and `filter_node` uses a Kalman filter to estimate odometry from successive camera poses.
 
-Publishes a transform from the map frame to the base frame.
-
-Publishes the estimated path during a mission.
-
-#### Subscribed topics
+##### Subscribed topics
 
 * `/start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
 * `/stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
 * `~camera_pose` [geometry_msgs/PoseWithCovarianceStamped](http://docs.ros.org/api/geometry_msgs/html/msg/PoseWithCovarianceStamped.html)
 
-#### Published topics
+##### Published topics
 
 * `~filtered_odom` [nav_msgs/Odometry](http://docs.ros.org/api/nav_msgs/html/msg/Odometry.html)
 * `~estimated_path` [nav_msgs/Path](http://docs.ros.org/api/nav_msgs/html/msg/Path.html)
 * `/tf` [tf2_msgs/TFMessage](http://docs.ros.org/api/tf2_msgs/html/msg/TFMessage.html)
 
-#### Parameters
+##### Parameters
 
 * `map_frame` is the world frame. The default is `map`.
 * `base_frame` is the coordinate frame of the drone. The default is `base_link`.
 
-### flock_simple_path
+#### simple_planner.py
 
-_TODO refactor_
+Compute and publish a set of waypoints for each drone in a flock.
+
+##### Subscribed topics
+
+* `/start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `/stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+
+_TODO_
+
+##### Published topics
+
+_TODO_
+
+##### Parameters
+
+_TODO_
+
+#### local_planner.py
+
+Given a set of waypoints for a drone, compute and publish a detailed path suitable for a PID controller.
+
+##### Subscribed topics
+
+* `/start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `/stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+
+_TODO_
+
+##### Published topics
+
+_TODO_
+
+##### Parameters
+
+_TODO_
