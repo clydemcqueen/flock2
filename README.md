@@ -20,6 +20,8 @@ Use your favorite Python package manager to set up Python 3.6+ and the following
 * numpy 1.15.2
 * transformations 2018.9.5
 
+_TODO no more Python?_
+
 ### 3. Set up your ROS environment
 
 [Install ROS2 Crystal Clemmys](https://index.ros.org/doc/ros2/Installation/) with the `ros-crystal-desktop` option.
@@ -117,9 +119,9 @@ or at least one drone has to be flown around manually to build a good map before
 The overall mission dataflow looks like this:
 
 1. `flock_base` publishes a message on the `/start_mission` topic
-2. `simple_planner.py` generates an overall pattern of flight for all drones, and publishes a 
+2. `global_planner` generates an overall pattern of flight for all drones, and publishes a 
 sequence waypoints for each drone on `/[prefix]/global_plan`
-3. `local_planner.py` subscribes to `~global_plan`, turns the waypoints into a detailed flight path,
+3. `local_planner` subscribes to `~global_plan`, turns the waypoints into a detailed flight path,
 and publishes it on `~local_plan`
 4. `drone_base` subscribes to `~local_plan` and `~filtered_odometry`, runs a PID controller,
 and sends commands to `tello_ros`
@@ -191,7 +193,7 @@ and `filter_node` uses a Kalman filter to estimate odometry from successive came
 * `map_frame` is the world frame. The default is `map`.
 * `base_frame` is the coordinate frame of the drone. The default is `base_link`.
 
-#### simple_planner.py
+#### global_planner
 
 Compute and publish a set of waypoints for each drone in a flock.
 
@@ -199,18 +201,22 @@ Compute and publish a set of waypoints for each drone in a flock.
 
 * `/start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
 * `/stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
-
-_TODO_
+* `~[prefix]/filtered_odom` [nav_msgs/Odometry](http://docs.ros.org/api/nav_msgs/html/msg/Odometry.html)
 
 ##### Published topics
 
-_TODO_
+* `~[prefix]/global_plan` [nav_msgs/Path](http://docs.ros.org/api/nav_msgs/html/msg/Path.html)
 
 ##### Parameters
 
-_TODO_
+* `drones` is an array of strings, where the number of strings is the number of drones and each string is the topic prefix for a drone.
+For example, `['d1', 'd2']` refers to 2 drones, and the flight data topic for the first drone is `/d1/flight_data`.
+The default is `['solo']`.
+* `arena_x` defines the X extent of the arena, in meters. The default is 2.
+* `arena_y` defines the Y extent of the arena, in meters. The default is 2.
+* `arena_z` defines the Z extent of the arena, in meters. Must be greater than 1.5. The default is 2.
 
-#### local_planner.py
+#### local_planner
 
 Given a set of waypoints for a drone, compute and publish a detailed path suitable for a PID controller.
 
@@ -218,13 +224,8 @@ Given a set of waypoints for a drone, compute and publish a detailed path suitab
 
 * `/start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
 * `/stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
-
-_TODO_
+* `~global_plan` [nav_msgs/Path](http://docs.ros.org/api/nav_msgs/html/msg/Path.html)
 
 ##### Published topics
 
-_TODO_
-
-##### Parameters
-
-_TODO_
+* `~local_plan` [nav_msgs/Path](http://docs.ros.org/api/nav_msgs/html/msg/Path.html)

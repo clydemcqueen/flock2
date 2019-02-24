@@ -11,13 +11,38 @@ from launch.actions import ExecuteProcess
 def generate_launch_description():
     urdf = os.path.join(get_package_share_directory('flock2'), 'urdf', 'tello.urdf')
     return LaunchDescription([
-        ExecuteProcess(cmd=['rviz2', '-d', 'install/flock2/share/flock2/launch/default.rviz'], output='screen'),
-        Node(package='robot_state_publisher', node_executable='robot_state_publisher', output='screen', arguments=[urdf]),
+        # Rviz
+        ExecuteProcess(cmd=['rviz2', '-d', 'install/flock2/share/flock2/launch/one.rviz'], output='screen'),
+
+        # Publish static transforms
+        Node(package='robot_state_publisher', node_executable='robot_state_publisher', output='screen',
+             arguments=[urdf]),
+
+        # USB camera (replaces driver)
+        Node(package='flock2', node_executable='usb_camera', output='screen',
+             node_name='usb_camera', node_namespace='solo'),
+
+        # Joystick
         Node(package='joy', node_executable='joy_node', output='screen'),
-        Node(package='flock2', node_executable='usb_camera', output='screen'),
-        Node(package='flock_vlam', node_executable='vloc_node', output='screen'),
-        Node(package='flock_vlam', node_executable='vmap_node', output='screen'),
-        Node(package='flock2', node_executable='filter_node', output='screen'),
+
+        # Flock controller
         Node(package='flock2', node_executable='flock_base', output='screen'),
-        Node(package='flock2', node_executable='flock_simple_path.py', output='screen'),
+
+        # Drone controller
+        Node(package='flock2', node_executable='drone_base', output='screen',
+             node_name='drone_base', node_namespace='solo'),
+
+        # Mapper
+        Node(package='flock_vlam', node_executable='vmap_node', output='screen'),
+
+        # Visual localizer
+        Node(package='flock_vlam', node_executable='vloc_node', output='screen',
+             node_name='vloc_node', node_namespace='solo'),
+
+        # Kalman filter
+        Node(package='flock2', node_executable='filter_node', output='screen',
+             node_name='filter_node', node_namespace='solo'),
+
+        # Global planner
+        Node(package='flock2', node_executable='global_planner', output='screen'),
     ])
