@@ -38,7 +38,7 @@ public:
   explicit FlockBase();
   ~FlockBase() {}
 
-  void joy_callback(sensor_msgs::msg::Joy::SharedPtr msg);
+  void joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg);
 
   void spin_once();
 };

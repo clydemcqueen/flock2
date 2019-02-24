@@ -4,7 +4,7 @@ namespace flock_base {
 
 FlockBase::FlockBase() : Node{"flock_base"}
 {
-  // Create the drone(s)
+  // Get drone namespaces
   if (get_parameter("drones", drones_)) {
     RCLCPP_INFO(get_logger(), "%d drones, joystick controls %s, right bumper to change",
       drones_.size(), drones_[manual_control_].c_str());
@@ -20,7 +20,7 @@ FlockBase::FlockBase() : Node{"flock_base"}
   start_mission_pub_ = create_publisher<std_msgs::msg::Empty>("/start_mission", 1);
   stop_mission_pub_ = create_publisher<std_msgs::msg::Empty>("/stop_mission", 1);
 
-  // Create all N joy publishers
+  // Create N joy publishers
   for (auto i = drones_.begin(); i != drones_.end(); i++) {
     joy_pubs_.push_back(create_publisher<sensor_msgs::msg::Joy>((*i) + "/joy", 1));
   }
@@ -31,7 +31,7 @@ inline bool button_down(const sensor_msgs::msg::Joy::SharedPtr curr, const senso
   return curr->buttons[index] && !prev.buttons[index];
 }
 
-void FlockBase::joy_callback(sensor_msgs::msg::Joy::SharedPtr msg)
+void FlockBase::joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg)
 {
   static sensor_msgs::msg::Joy prev_msg;
 
@@ -70,7 +70,6 @@ void FlockBase::joy_callback(sensor_msgs::msg::Joy::SharedPtr msg)
 
 void FlockBase::spin_once()
 {
-  // TODO publish arena message at 1Hz
 }
 
 } // namespace flock_base

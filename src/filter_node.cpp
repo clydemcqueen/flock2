@@ -168,7 +168,7 @@ FilterNode::FilterNode() :
 }
 
 // Start mission
-void FilterNode::start_mission_callback(std_msgs::msg::Empty::SharedPtr msg)
+void FilterNode::start_mission_callback(const std_msgs::msg::Empty::SharedPtr msg)
 {
   (void)msg;
   path_msg_.poses.clear();
@@ -176,14 +176,14 @@ void FilterNode::start_mission_callback(std_msgs::msg::Empty::SharedPtr msg)
 }
 
 // Stop mission
-void FilterNode::stop_mission_callback(std_msgs::msg::Empty::SharedPtr msg)
+void FilterNode::stop_mission_callback(const std_msgs::msg::Empty::SharedPtr msg)
 {
   (void)msg;
   mission_ = false;
 }
 
 // Process raw camera pose and publish estimated drone pose
-void FilterNode::camera_pose_callback(geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
+void FilterNode::camera_pose_callback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
 {
   rclcpp::Time stamp(msg->header.stamp);
 

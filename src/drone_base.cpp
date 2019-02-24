@@ -180,21 +180,19 @@ inline bool button_down(const sensor_msgs::msg::Joy::SharedPtr curr, const senso
   return curr->buttons[index] && !prev.buttons[index];
 }
 
-void DroneBase::start_mission_callback(std_msgs::msg::Empty::SharedPtr msg)
+void DroneBase::start_mission_callback(const std_msgs::msg::Empty::SharedPtr msg)
 {
   (void)msg;
-
   mission_ = true;
 }
 
-void DroneBase::stop_mission_callback(std_msgs::msg::Empty::SharedPtr msg)
+void DroneBase::stop_mission_callback(const std_msgs::msg::Empty::SharedPtr msg)
 {
   (void)msg;
-
   mission_ = false;
 }
 
-void DroneBase::joy_callback(sensor_msgs::msg::Joy::SharedPtr msg)
+void DroneBase::joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg)
 {
   static sensor_msgs::msg::Joy prev_msg;
 
@@ -241,7 +239,7 @@ void DroneBase::joy_callback(sensor_msgs::msg::Joy::SharedPtr msg)
   prev_msg = *msg;
 }
 
-void DroneBase::tello_response_callback(tello_msgs::msg::TelloResponse::SharedPtr msg)
+void DroneBase::tello_response_callback(const tello_msgs::msg::TelloResponse::SharedPtr msg)
 {
   ActionMgr::State result = action_mgr_->complete(msg);
   if (result == ActionMgr::State::succeeded) {
@@ -249,7 +247,7 @@ void DroneBase::tello_response_callback(tello_msgs::msg::TelloResponse::SharedPt
   }
 }
 
-void DroneBase::flight_data_callback(tello_msgs::msg::FlightData::SharedPtr msg)
+void DroneBase::flight_data_callback(const tello_msgs::msg::FlightData::SharedPtr msg)
 {
   if (!receiving_flight_data()) {
     transition_state(Event::connected);
@@ -262,7 +260,7 @@ void DroneBase::flight_data_callback(tello_msgs::msg::FlightData::SharedPtr msg)
   prev_flight_data_stamp_ = msg->header.stamp;
 }
 
-void DroneBase::odom_callback(nav_msgs::msg::Odometry::SharedPtr msg)
+void DroneBase::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
   // It's possible (but unlikely) to get an odom message before flight data
   if (receiving_flight_data()) {

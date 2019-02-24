@@ -99,12 +99,12 @@ private:
   void transition_state(Event event);
   void transition_state(State next_state);
 
-  void joy_callback(sensor_msgs::msg::Joy::SharedPtr msg);
-  void start_mission_callback(std_msgs::msg::Empty::SharedPtr msg);
-  void stop_mission_callback(std_msgs::msg::Empty::SharedPtr msg);
-  void tello_response_callback(tello_msgs::msg::TelloResponse::SharedPtr msg);
-  void flight_data_callback(tello_msgs::msg::FlightData::SharedPtr msg);
-  void odom_callback(nav_msgs::msg::Odometry::SharedPtr msg);
+  void joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg);
+  void start_mission_callback(const std_msgs::msg::Empty::SharedPtr msg);
+  void stop_mission_callback(const std_msgs::msg::Empty::SharedPtr msg);
+  void tello_response_callback(const tello_msgs::msg::TelloResponse::SharedPtr msg);
+  void flight_data_callback(const tello_msgs::msg::FlightData::SharedPtr msg);
+  void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
 };
 
 } // namespace drone_base
