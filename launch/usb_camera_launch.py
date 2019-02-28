@@ -9,7 +9,10 @@ from launch.actions import ExecuteProcess
 
 
 def generate_launch_description():
+    emulator_path = 'install/tello_driver/lib/tello_driver/tello_emulator'
+    tello_driver_params = [{'drone_ip': '127.0.0.1'}]
     urdf = os.path.join(get_package_share_directory('flock2'), 'urdf', 'tello.urdf')
+
     return LaunchDescription([
         # Rviz
         ExecuteProcess(cmd=['rviz2', '-d', 'install/flock2/share/flock2/launch/one.rviz'], output='screen'),
@@ -18,7 +21,14 @@ def generate_launch_description():
         Node(package='robot_state_publisher', node_executable='robot_state_publisher', output='screen',
              arguments=[urdf]),
 
-        # USB camera (replaces driver)
+        # Emulator
+        ExecuteProcess(cmd=[emulator_path], output='screen'),
+
+        # Driver
+        Node(package='tello_driver', node_executable='tello_driver', output='screen',
+             node_name='tello_driver', node_namespace='solo', parameters=tello_driver_params),
+
+        # USB camera (provides video)
         Node(package='flock2', node_executable='usb_camera', output='screen',
              node_name='usb_camera', node_namespace='solo'),
 

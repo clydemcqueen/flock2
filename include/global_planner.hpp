@@ -54,8 +54,6 @@ class GlobalPlannerNode : public rclcpp::Node
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr start_mission_sub_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr stop_mission_sub_;
 
-  void spin_1Hz();
-
 public:
 
   explicit GlobalPlannerNode();
@@ -64,6 +62,8 @@ public:
   void spin_once();
 
 private:
+
+  void spin_1Hz();
 
   void start_mission_callback(const std_msgs::msg::Empty::SharedPtr msg);
   void stop_mission_callback(const std_msgs::msg::Empty::SharedPtr msg);

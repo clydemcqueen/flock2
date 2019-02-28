@@ -4,6 +4,10 @@
 
 namespace global_planner {
 
+//====================
+// Constants
+//====================
+
 // Spin rate
 const int SPIN_RATE = 20;
 
@@ -11,6 +15,10 @@ const int SPIN_RATE = 20;
 const double MIN_ARENA_Z = 1.5;
 const double MIN_ARENA_XY = 2.0;
 const double GROUND_EPSILON = 0.2;
+
+//====================
+// Utilities
+//====================
 
 // Are we on the ground?
 inline bool on_the_ground(nav_msgs::msg::Odometry::SharedPtr msg)
@@ -44,7 +52,7 @@ void DroneInfo::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 // GlobalPlannerNode
 //====================
 
-GlobalPlannerNode::GlobalPlannerNode() : Node{"global_planner"}
+GlobalPlannerNode::GlobalPlannerNode() : Node{"global_planner"}, mission_{false}
 {
   // Get drone namespaces
   std::vector<std::string> namespaces{"solo"};
@@ -71,20 +79,6 @@ GlobalPlannerNode::GlobalPlannerNode() : Node{"global_planner"}
   }
 }
 
-void GlobalPlannerNode::start_mission_callback(const std_msgs::msg::Empty::SharedPtr msg)
-{
-  (void)msg;
-  mission_ = true;
-  RCLCPP_INFO(get_logger(), "mission start");
-}
-
-void GlobalPlannerNode::stop_mission_callback(const std_msgs::msg::Empty::SharedPtr msg)
-{
-  (void)msg;
-  mission_ = false;
-  RCLCPP_INFO(get_logger(), "mission stop");
-}
-
 void GlobalPlannerNode::spin_1Hz()
 {
   if (std::abs(arena_.x) < MIN_ARENA_XY || std::abs(arena_.y) < MIN_ARENA_XY || arena_.z < MIN_ARENA_Z) {
@@ -100,7 +94,7 @@ void GlobalPlannerNode::spin_1Hz()
   if (plans_.size() == 0) {
     // Wait until we have landing poses for all drones
     for (auto i = drones_.begin(); i != drones_.end(); i++) {
-      if (!(*i)->valid_landing_pose()) {
+      if (!(*i)->valid_landing_pose()) { // TODO occasional crashes
         RCLCPP_INFO(get_logger(), "waiting for landing pose for %s (and possibly more)", (*i)->ns().c_str());
         return;
       }
@@ -131,7 +125,25 @@ void GlobalPlannerNode::spin_once()
   }
 }
 
+void GlobalPlannerNode::start_mission_callback(const std_msgs::msg::Empty::SharedPtr msg)
+{
+  (void)msg;
+  mission_ = true;
+  RCLCPP_INFO(get_logger(), "mission start");
+}
+
+void GlobalPlannerNode::stop_mission_callback(const std_msgs::msg::Empty::SharedPtr msg)
+{
+  (void)msg;
+  mission_ = false;
+  RCLCPP_INFO(get_logger(), "mission stop");
+}
+
 } // namespace global_planner
+
+//====================
+// main
+//====================
 
 int main(int argc, char **argv)
 {
