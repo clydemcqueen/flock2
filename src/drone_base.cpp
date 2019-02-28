@@ -203,7 +203,7 @@ void DroneBase::spin_once()
 
   // Manual flight
   if (!mission_) {
-    if (state_ == State::flight && !action_mgr_->busy()) {
+    if ((state_ == State::flight || state_ == State::flight_odom) && !action_mgr_->busy()) {
       cmd_vel_pub_->publish(twist_);
     }
   }
@@ -215,14 +215,13 @@ void DroneBase::spin_once()
       // There's more to do
       if (state_ == State::ready_odom) {
         if (!action_mgr_->busy()) {
-          RCLCPP_INFO(get_logger(), "start mission");
+          RCLCPP_INFO(get_logger(), "start mission, taking off");
           start_action(Action::takeoff);
         }
       }
       else if (state_ == State::flight_odom) {
         if (close_enough(plan_.poses[plan_target_].pose, odom_.pose.pose)) {
           // Advance to the next target
-          RCLCPP_INFO(get_logger(), "advancing to next waypoint");
           if (++plan_target_ < plan_.poses.size()) {
             set_pid_controllers();
           }
@@ -243,7 +242,7 @@ void DroneBase::spin_once()
       // We're done
       if (state_ == State::flight || state_ == State::flight_odom) {
         if (!action_mgr_->busy()) {
-          RCLCPP_INFO(get_logger(), "mission over, landing");
+          RCLCPP_INFO(get_logger(), "mission complete, landing");
           start_action(Action::land);
         }
       }
@@ -328,6 +327,7 @@ void DroneBase::flight_data_callback(const tello_msgs::msg::FlightData::SharedPt
   }
 
   if (msg->bat < MIN_BATTERY && state_ != State::low_battery) {
+    RCLCPP_ERROR(get_logger(), "LOW BATTERY %d", msg->bat);
     transition_state(Event::low_battery);
   }
 
@@ -417,10 +417,15 @@ void DroneBase::set_velocity(double throttle, double strafe, double vertical, do
 
 void DroneBase::set_pid_controllers()
 {
+  double yaw = get_yaw(plan_.poses[plan_target_].pose);
+
+  RCLCPP_INFO(get_logger(), "target: %g, %g, %g, %g", plan_.poses[plan_target_].pose.position.x,
+    plan_.poses[plan_target_].pose.position.y, plan_.poses[plan_target_].pose.position.z, yaw);
+
   x_controller_.set_target(plan_.poses[plan_target_].pose.position.x);
   y_controller_.set_target(plan_.poses[plan_target_].pose.position.y);
   z_controller_.set_target(plan_.poses[plan_target_].pose.position.z);
-  yaw_controller_.set_target(get_yaw(plan_.poses[plan_target_].pose));
+  yaw_controller_.set_target(yaw);
 }
 
 } // namespace drone_base

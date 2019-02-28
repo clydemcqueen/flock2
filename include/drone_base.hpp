@@ -72,10 +72,10 @@ class DroneBase : public rclcpp::Node
   int plan_target_;
 
   // PID controllers
-  pid::Controller x_controller_{false, 0.2, 0, 0};
-  pid::Controller y_controller_{false, 0.2, 0, 0};
-  pid::Controller z_controller_{false, 0.2, 0, 0};
-  pid::Controller yaw_controller_{true, 0.2, 0, 0};
+  pid::Controller x_controller_{false, 0.3, 0, 0};
+  pid::Controller y_controller_{false, 0.3, 0, 0};
+  pid::Controller z_controller_{false, 0.3, 0, 0};
+  pid::Controller yaw_controller_{true, 0.3, 0, 0};
 
   // Joystick assignments
   int joy_axis_throttle_ = JOY_AXIS_RIGHT_FB;
