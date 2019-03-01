@@ -135,12 +135,21 @@ bool valid_event_transition(const State state, const Event event, State &next_st
 
 bool valid_action_transition(const State state, const Action action, State &next_state)
 {
+  // Allow for emergency landing in all states
   const static std::vector<ActionTransition> valid_transitions{
+    ActionTransition{State::unknown, Action::land, State::unknown},
+
     ActionTransition{State::ready, Action::takeoff, State::flight},
-    ActionTransition{State::ready_odom, Action::takeoff, State::flight_odom},
+    ActionTransition{State::ready, Action::land, State::ready},
 
     ActionTransition{State::flight, Action::land, State::ready},
+
+    ActionTransition{State::ready_odom, Action::takeoff, State::flight_odom},
+    ActionTransition{State::ready_odom, Action::land, State::ready_odom},
+
     ActionTransition{State::flight_odom, Action::land, State::ready_odom},
+
+    ActionTransition{State::low_battery, Action::land, State::low_battery},
   };
 
   for (auto i = valid_transitions.begin(); i != valid_transitions.end(); i++) {
