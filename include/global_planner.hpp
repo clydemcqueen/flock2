@@ -45,7 +45,7 @@ class GlobalPlannerNode : public rclcpp::Node
   geometry_msgs::msg::Point arena_;
 
   // Per-drone info
-  std::vector<DroneInfo*> drones_;
+  std::vector<std::shared_ptr<DroneInfo>> drones_;
 
   // Global plans
   std::vector<nav_msgs::msg::Path> plans_;

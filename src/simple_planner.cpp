@@ -48,15 +48,14 @@ SimplePlanner::SimplePlanner(const std::vector<geometry_msgs::msg::PoseStamped> 
     waypoints.push_back(p);
   }
 
-  // Init paths
-  for (auto i = waypoints.begin(); i != waypoints.end(); i++) {
-    nav_msgs::msg::Path path;
-    path.header = i->header;
-    plans_.push_back(path);
-  }
-
-  // Copy waypoints into paths
   for (int i = 0; i <= waypoints.size(); i++) {
+
+    // Init path
+    nav_msgs::msg::Path path;
+    path.header = waypoints[i].header;
+    plans_.push_back(path);
+
+    // Copy waypoints
     for (int j = 0; j < waypoints.size(); j++) {
       plans_[i].poses.push_back(waypoints[(i + j) % waypoints.size()]);
     }

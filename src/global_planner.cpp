@@ -75,7 +75,7 @@ GlobalPlannerNode::GlobalPlannerNode() : Node{"global_planner"}, mission_{false}
   stop_mission_sub_ = create_subscription<std_msgs::msg::Empty>("/stop_mission", stop_mission_cb);
 
   for (auto i = namespaces.begin(); i != namespaces.end(); i++) {
-    drones_.push_back(new DroneInfo(this, *i));
+    drones_.push_back(std::make_shared<DroneInfo>(this, *i));
   }
 }
 
@@ -94,7 +94,7 @@ void GlobalPlannerNode::spin_1Hz()
   if (plans_.size() == 0) {
     // Wait until we have landing poses for all drones
     for (auto i = drones_.begin(); i != drones_.end(); i++) {
-      if (!(*i)->valid_landing_pose()) { // TODO occasional crashes
+      if (!(*i)->valid_landing_pose()) {
         RCLCPP_INFO(get_logger(), "waiting for landing pose for %s (and possibly more)", (*i)->ns().c_str());
         return;
       }
@@ -129,14 +129,14 @@ void GlobalPlannerNode::start_mission_callback(const std_msgs::msg::Empty::Share
 {
   (void)msg;
   mission_ = true;
-  RCLCPP_INFO(get_logger(), "mission start");
+  RCLCPP_INFO(get_logger(), "start mission");
 }
 
 void GlobalPlannerNode::stop_mission_callback(const std_msgs::msg::Empty::SharedPtr msg)
 {
   (void)msg;
   mission_ = false;
-  RCLCPP_INFO(get_logger(), "mission stop");
+  RCLCPP_INFO(get_logger(), "stop mission");
 }
 
 } // namespace global_planner
