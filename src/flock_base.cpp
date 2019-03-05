@@ -4,15 +4,14 @@ namespace flock_base {
 
 FlockBase::FlockBase() : Node{"flock_base"}
 {
-  // Create the drone(s)
-  std::vector<std::string> drone_namespaces;
-  if (get_parameter("drones", drone_namespaces)) {
-    for (auto i = drone_namespaces.begin(); i != drone_namespaces.end(); i++) {
-      drones_.push_back(std::make_shared<Drone>(this, *i));
-    }
-    RCLCPP_INFO(get_logger(), "joystick controls %s, right bumper to change", drones_[manual_control_]->ns().c_str());
+  // Get drone namespaces
+  if (get_parameter("drones", drones_)) {
+    RCLCPP_INFO(get_logger(), "%d drones, joystick controls %s, right bumper to change",
+      drones_.size(), drones_[manual_control_].c_str());
   } else {
-    drones_.push_back(std::make_shared<Drone>(this));
+    // A single drone always has the namespace "solo"
+    RCLCPP_INFO(get_logger(), "1 drone");
+    drones_.push_back("solo");
   }
 
   auto joy_cb = std::bind(&FlockBase::joy_callback, this, std::placeholders::_1);
@@ -20,6 +19,11 @@ FlockBase::FlockBase() : Node{"flock_base"}
 
   start_mission_pub_ = create_publisher<std_msgs::msg::Empty>("/start_mission", 1);
   stop_mission_pub_ = create_publisher<std_msgs::msg::Empty>("/stop_mission", 1);
+
+  // Create N joy publishers
+  for (auto i = drones_.begin(); i != drones_.end(); i++) {
+    joy_pubs_.push_back(create_publisher<sensor_msgs::msg::Joy>((*i) + "/joy", 1));
+  }
 }
 
 inline bool button_down(const sensor_msgs::msg::Joy::SharedPtr curr, const sensor_msgs::msg::Joy &prev, int index)
@@ -27,7 +31,7 @@ inline bool button_down(const sensor_msgs::msg::Joy::SharedPtr curr, const senso
   return curr->buttons[index] && !prev.buttons[index];
 }
 
-void FlockBase::joy_callback(sensor_msgs::msg::Joy::SharedPtr msg)
+void FlockBase::joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg)
 {
   static sensor_msgs::msg::Joy prev_msg;
 
@@ -54,52 +58,18 @@ void FlockBase::joy_callback(sensor_msgs::msg::Joy::SharedPtr msg)
       if (++manual_control_ >= drones_.size()) {
         manual_control_ = 0;
       }
-      RCLCPP_INFO(get_logger(), "joystick controls %s", drones_[manual_control_]->ns().c_str());
+      RCLCPP_INFO(get_logger(), "joystick controls %s", drones_[manual_control_].c_str());
     }
   }
 
-  // Takeoff/land
-  if (!mission_ && button_down(msg, prev_msg, joy_button_takeoff_)) {
-    drones_[manual_control_]->start_action(Action::takeoff);
-  } else if (!mission_ && button_down(msg, prev_msg, joy_button_land_)) {
-    drones_[manual_control_]->start_action(Action::land);
-  }
-
-  // Trim (slow, steady) mode vs. joystick mode
-  if (msg->axes[joy_axis_trim_lr_] || msg->axes[joy_axis_trim_fb_]) {
-    const static double TRIM_SPEED{0.2};
-    double throttle{0}, strafe{0}, vertical{0}, yaw{0};
-    if (msg->axes[joy_axis_trim_lr_]) {
-      if (msg->buttons[joy_button_shift_]) {
-        yaw = TRIM_SPEED * msg->axes[joy_axis_trim_lr_];
-      } else {
-        strafe = TRIM_SPEED * msg->axes[joy_axis_trim_lr_];
-      }
-    }
-    if (msg->axes[joy_axis_trim_fb_]) {
-      if (msg->buttons[joy_button_shift_]) {
-        throttle = TRIM_SPEED * msg->axes[joy_axis_trim_fb_];
-      } else {
-        vertical = TRIM_SPEED * msg->axes[joy_axis_trim_fb_];
-      }
-    }
-    drones_[manual_control_]->set_velocity(throttle, strafe, vertical, yaw);
-  } else {
-    drones_[manual_control_]->set_velocity(
-      msg->axes[joy_axis_throttle_],
-      msg->axes[joy_axis_strafe_],
-      msg->axes[joy_axis_vertical_],
-      msg->axes[joy_axis_yaw_]);
-  }
+  // Send joy message to the drone
+  joy_pubs_[manual_control_]->publish(msg);
 
   prev_msg = *msg;
 }
 
 void FlockBase::spin_once()
 {
-  for (auto i = drones_.begin(); i != drones_.end(); i++) {
-    (*i)->spin_once();
-  }
 }
 
 } // namespace flock_base

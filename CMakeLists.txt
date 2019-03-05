@@ -46,22 +46,11 @@ find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
-find_package(rosidl_cmake REQUIRED)               # Required to define and use custom messages in the same project
-find_package(rosidl_default_generators REQUIRED)  # Required to define and use custom messages in the same project
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(tello_msgs REQUIRED)
 find_package(tf2_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
-
-# Generate ROS messages
-rosidl_generate_interfaces(
-  ${PROJECT_NAME}
-  msg/Arena.msg
-  srv/GetGlobalPlan.srv
-  srv/GetLocalPlan.srv
-  DEPENDENCIES flock_vlam_msgs geometry_msgs nav_msgs std_msgs
-)
 
 # Local includes
 include_directories(
@@ -85,24 +74,33 @@ include_directories(
 add_executable(
   flock_base
   src/flock_base.cpp
-  src/action_mgr.cpp
-  src/drone.cpp
-)
-
-# Required because flock_base uses custom messages defined in the same project
-rosidl_target_interfaces(
-  flock_base
-  ${PROJECT_NAME}
-  rosidl_typesupport_cpp
 )
 
 ament_target_dependencies(
   flock_base
+  rclcpp
+  sensor_msgs
+  std_msgs
+)
+
+#=============
+# Drone base node
+#=============
+
+add_executable(
+  drone_base
+  src/drone_base.cpp
+  src/action_mgr.cpp
+)
+
+ament_target_dependencies(
+  drone_base
   geometry_msgs
   nav_msgs
   rclcpp
-  tello_msgs
   sensor_msgs
+  std_msgs
+  tello_msgs
 )
 
 #=============
@@ -138,6 +136,39 @@ ament_target_dependencies(
 )
 
 #=============
+# Global planner node
+#=============
+
+add_executable(
+  global_planner
+  src/global_planner.cpp
+  src/simple_planner.cpp
+)
+
+ament_target_dependencies(
+  global_planner
+  nav_msgs
+  rclcpp
+  std_msgs
+)
+
+#=============
+# Local planner node
+#=============
+
+add_executable(
+  local_planner
+  src/local_planner.cpp
+)
+
+ament_target_dependencies(
+  local_planner
+  nav_msgs
+  rclcpp
+  std_msgs
+)
+
+#=============
 # Install
 #=============
 
@@ -145,8 +176,11 @@ ament_target_dependencies(
 install(
   TARGETS
   flock_base
+  drone_base
   usb_camera
   filter_node
+  global_planner
+  local_planner
   DESTINATION lib/${PROJECT_NAME}
 )
 
