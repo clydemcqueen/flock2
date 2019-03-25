@@ -2,7 +2,7 @@
 
 `flock2` can fly a swarm of [DJI Tello](https://store.dji.com/product/tello) drones.
 `flock2` is built on top of [ROS2](https://index.ros.org/doc/ros2/),
- [flock_vlam](https://github.com/ptrmu/flock_vlam)
+ [fiducial_vlam](https://github.com/ptrmu/fiducial_vlam)
  and [tello_ros](https://github.com/clydemcqueen/tello_ros).
 
 ## Installation
@@ -11,16 +11,12 @@
 
 Set up a Ubuntu 18.04 box or VM. This should include ffmpeg 3.4.4 and OpenCV 3.2.
 
-_TODO OpenCV 3.4_
-
 ### 2. Set up your Python environment
 
 Use your favorite Python package manager to set up Python 3.6+ and the following packages:
 
 * numpy 1.15.2
 * transformations 2018.9.5
-
-_TODO no more Python?_
 
 ### 3. Set up your ROS environment
 
@@ -35,14 +31,14 @@ Install these additional packages:
 sudo apt install ros-crystal-cv-bridge
 ~~~
 
-### 4. Install flock2, flock_vlam and tello_ros
+### 4. Install flock2, fiducial_vlam and tello_ros
 
 Download, compile and install the following packages:
 ~~~
 mkdir -p ~/flock2_ws/src
 cd ~/flock2_ws/src
 git clone https://github.com/clydemcqueen/flock2.git
-git clone https://github.com/ptrmu/flock_vlam.git
+git clone https://github.com/ptrmu/fiducial_vlam.git
 git clone https://github.com/clydemcqueen/tello_ros.git
 cd ..
 source /opt/ros/crystal/setup.bash
@@ -173,7 +169,7 @@ Controls a single Tello drone. Akin to `move_base` in the ROS navigation stack.
 
 #### filter_node
 
-`flock_vlam` computes a camera pose from ArUco markers placed in the environment,
+`fiducial_vlam` computes a camera pose from ArUco markers placed in the environment,
 and `filter_node` uses a Kalman filter to estimate odometry from successive camera poses.
 
 ##### Subscribed topics

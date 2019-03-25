@@ -43,10 +43,10 @@ def generate_launch_description():
              node_name='drone_base', node_namespace='solo'),
 
         # Mapper
-        Node(package='flock_vlam', node_executable='vmap_node', output='screen'),
+        Node(package='fiducial_vlam', node_executable='vmap_node', output='screen'),
 
         # Visual localizer
-        Node(package='flock_vlam', node_executable='vloc_node', output='screen',
+        Node(package='fiducial_vlam', node_executable='vloc_node', output='screen',
              node_name='vloc_node', node_namespace='solo'),
 
         # Kalman filter

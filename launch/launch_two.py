@@ -77,12 +77,12 @@ def generate_launch_description():
              node_name='base2', node_namespace=dr2_ns),
 
         # Mapper
-        Node(package='flock_vlam', node_executable='vmap_node', output='screen'),
+        Node(package='fiducial_vlam', node_executable='vmap_node', output='screen'),
 
         # N visual localizers
-        Node(package='flock_vlam', node_executable='vloc_node', output='screen',
+        Node(package='fiducial_vlam', node_executable='vloc_node', output='screen',
              node_name='vloc1', node_namespace=dr1_ns),
-        Node(package='flock_vlam', node_executable='vloc_node', output='screen',
+        Node(package='fiducial_vlam', node_executable='vloc_node', output='screen',
              node_name='vloc2', node_namespace=dr2_ns),
 
         # N Kalman filters

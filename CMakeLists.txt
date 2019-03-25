@@ -22,7 +22,6 @@ if($ENV{CLION_IDE})
   set(FastRTPS_INCLUDE_DIR "/opt/ros/crystal/include")
   set(FastRTPS_LIBRARY_RELEASE "/opt/ros/crystal/lib/libfastrtps.so")
   set(tello_msgs_DIR "${PROJECT_SOURCE_DIR}/../../install/tello_msgs/share/tello_msgs/cmake")
-  set(flock_vlam_msgs_DIR "${PROJECT_SOURCE_DIR}/../../install/flock_vlam_msgs/share/flock_vlam_msgs/cmake")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DRUN_INSIDE_CLION")
 endif()
 
@@ -41,7 +40,6 @@ find_package(ament_cmake REQUIRED)
 find_package(builtin_interfaces REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(Eigen3)
-find_package(flock_vlam_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -57,7 +55,6 @@ include_directories(
   include
   ${cv_bridge_INCLUDE_DIRS}
   ${Eigen3_INCLUDE_DIRS}
-  ${flock_vlam_msgs_INCLUDE_DIRS}
   ${geometry_msgs_INCLUDE_DIRS}
   ${nav_msgs_INCLUDE_DIRS}
   ${rclcpp_INCLUDE_DIRS}
