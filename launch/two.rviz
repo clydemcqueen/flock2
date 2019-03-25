@@ -107,7 +107,7 @@ Visualization Manager:
     - Alpha: 1
       Class: rviz_default_plugins/RobotModel
       Collision Enabled: false
-      Description File: install/flock2/share/flock2/urdf/drone1.urdf
+      Description File: install/tello_description/share/tello_description/urdf/drone_1.urdf
       Description Source: File
       Description Topic: /robot_description
       Enabled: true
@@ -136,7 +136,7 @@ Visualization Manager:
     - Alpha: 1
       Class: rviz_default_plugins/RobotModel
       Collision Enabled: false
-      Description File: install/flock2/share/flock2/urdf/drone2.urdf
+      Description File: install/tello_description/share/tello_description/urdf/drone_2.urdf
       Description Source: File
       Description Topic: ""
       Enabled: true

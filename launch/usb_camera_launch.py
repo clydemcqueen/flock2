@@ -11,7 +11,7 @@ from launch.actions import ExecuteProcess
 def generate_launch_description():
     emulator_path = 'install/tello_driver/lib/tello_driver/tello_emulator'
     tello_driver_params = [{'drone_ip': '127.0.0.1'}]
-    urdf = os.path.join(get_package_share_directory('flock2'), 'urdf', 'tello.urdf')
+    urdf = os.path.join(get_package_share_directory('tello_description'), 'urdf', 'tello.urdf')
 
     return LaunchDescription([
         # Rviz

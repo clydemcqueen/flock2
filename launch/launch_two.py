@@ -7,12 +7,10 @@ from launch.actions import ExecuteProcess
 
 # Launch a flock of drones
 
-# TODO use xacro or something similar to modify urdf files on-the-fly
-
 
 def generate_launch_description():
-    urdf1 = os.path.join(get_package_share_directory('flock2'), 'urdf', 'drone1.urdf')
-    urdf2 = os.path.join(get_package_share_directory('flock2'), 'urdf', 'drone2.urdf')
+    urdf1 = os.path.join(get_package_share_directory('tello_description'), 'urdf', 'drone_1.urdf')
+    urdf2 = os.path.join(get_package_share_directory('tello_description'), 'urdf', 'drone_2.urdf')
 
     dr1_ns = 'drone1'
     dr2_ns = 'drone2'

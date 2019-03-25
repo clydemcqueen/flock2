@@ -170,12 +170,11 @@ install(
   DESTINATION lib/${PROJECT_NAME}
 )
 
-# Install cfg, launch and urdf directories
+# Install various directories
 install(
   DIRECTORY
   cfg
   launch
-  urdf
   DESTINATION share/${PROJECT_NAME}
 )
 

@@ -9,7 +9,7 @@ from launch.actions import ExecuteProcess
 
 
 def generate_launch_description():
-    urdf = os.path.join(get_package_share_directory('flock2'), 'urdf', 'tello.urdf')
+    urdf = os.path.join(get_package_share_directory('tello_description'), 'urdf', 'tello.urdf')
     return LaunchDescription([
         # Rviz
         ExecuteProcess(cmd=['rviz2', '-d', 'install/flock2/share/flock2/launch/one.rviz'], output='screen'),
