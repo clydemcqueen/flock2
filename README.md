@@ -2,7 +2,8 @@
 
 `flock2` can fly a swarm of [DJI Tello](https://store.dji.com/product/tello) drones.
 `flock2` is built on top of [ROS2](https://index.ros.org/doc/ros2/),
- [fiducial_vlam](https://github.com/ptrmu/fiducial_vlam)
+ [fiducial_vlam](https://github.com/ptrmu/fiducial_vlam),
+ [odom_filter](https://github.com/clydemcqueen/odom_filter),
  and [tello_ros](https://github.com/clydemcqueen/tello_ros).
 
 ## Installation
@@ -166,28 +167,6 @@ Controls a single Tello drone. Akin to `move_base` in the ROS navigation stack.
 ##### Published services
 
 * `~tello_command` tello_msgs/TelloCommand
-
-#### filter_node
-
-`fiducial_vlam` computes a camera pose from ArUco markers placed in the environment,
-and `filter_node` uses a Kalman filter to estimate odometry from successive camera poses.
-
-##### Subscribed topics
-
-* `/start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
-* `/stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
-* `~camera_pose` [geometry_msgs/PoseWithCovarianceStamped](http://docs.ros.org/api/geometry_msgs/html/msg/PoseWithCovarianceStamped.html)
-
-##### Published topics
-
-* `~filtered_odom` [nav_msgs/Odometry](http://docs.ros.org/api/nav_msgs/html/msg/Odometry.html)
-* `~estimated_path` [nav_msgs/Path](http://docs.ros.org/api/nav_msgs/html/msg/Path.html)
-* `/tf` [tf2_msgs/TFMessage](http://docs.ros.org/api/tf2_msgs/html/msg/TFMessage.html)
-
-##### Parameters
-
-* `map_frame` is the world frame. The default is `map`.
-* `base_frame` is the coordinate frame of the drone. The default is `base_link`.
 
 #### global_planner
 

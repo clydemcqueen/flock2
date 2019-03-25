@@ -114,25 +114,6 @@ ament_target_dependencies(
 )
 
 #=============
-# Filter node
-#=============
-
-add_executable(
-  filter_node
-  src/filter_node.cpp
-  src/kf.cpp
-)
-
-ament_target_dependencies(
-  filter_node
-  geometry_msgs
-  nav_msgs
-  rclcpp
-  std_msgs
-  tf2_msgs
-)
-
-#=============
 # Global planner node
 #=============
 
@@ -175,7 +156,6 @@ install(
   flock_base
   drone_base
   usb_camera
-  filter_node
   global_planner
   local_planner
   DESTINATION lib/${PROJECT_NAME}

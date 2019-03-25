@@ -50,7 +50,7 @@ def generate_launch_description():
              node_name='vloc_node', node_namespace='solo'),
 
         # Kalman filter
-        Node(package='flock2', node_executable='filter_node', output='screen',
+        Node(package='odom_filter', node_executable='filter_node', output='screen',
              node_name='filter_node', node_namespace='solo'),
 
         # Global planner
