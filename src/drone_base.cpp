@@ -394,7 +394,7 @@ void DroneBase::start_action(Action action)
     return;
   }
 
-  RCLCPP_INFO(get_logger(), "initiating %s", g_actions[action]);
+  RCLCPP_INFO(get_logger(), "in state '%s', initiating action '%s'", g_states[state_], g_actions[action]);
   action_mgr_->send(action, g_actions[action]);
 }
 
@@ -423,7 +423,7 @@ void DroneBase::transition_state(Event event)
 void DroneBase::transition_state(State next_state)
 {
   if (state_ != next_state) {
-    RCLCPP_INFO(get_logger(), "transition to %s", g_states[next_state]);
+    RCLCPP_INFO(get_logger(), "transition from '%s' to '%s'",g_states[state_], g_states[next_state]);
     state_ = next_state;
   }
 }
