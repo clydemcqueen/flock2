@@ -168,6 +168,16 @@ bool valid_action_transition(const State state, const Action action, State &next
 
 DroneBase::DroneBase() : Node{"drone_base"}
 {
+  // Suppress CLion warnings
+  (void)cmd_vel_pub_;
+  (void)start_mission_sub_;
+  (void)stop_mission_sub_;
+  (void)joy_sub_;
+  (void)tello_response_sub_;
+  (void)flight_data_sub_;
+  (void)odom_sub_;
+  (void)plan_sub_;
+
   action_mgr_ = std::make_unique<ActionMgr>(get_logger(),
     create_client<tello_msgs::srv::TelloAction>("tello_action"));
 
@@ -195,16 +205,16 @@ DroneBase::DroneBase() : Node{"drone_base"}
 void DroneBase::spin_once()
 {
   // Check for flight data timeout
-  if (receiving_flight_data() && now() - prev_flight_data_stamp_ > FLIGHT_DATA_TIMEOUT) {
+  if (receiving_flight_data_ && now() - flight_data_.header.stamp > FLIGHT_DATA_TIMEOUT) {
     transition_state(Event::disconnected);
-    prev_flight_data_stamp_ = rclcpp::Time();
-    prev_odom_stamp_ = rclcpp::Time();
+    receiving_flight_data_ = false;
+    receiving_odom_ = false;
   }
 
   // Check for odometry timeout
-  if (receiving_odometry() && now() - prev_odom_stamp_ > ODOM_TIMEOUT) {
+  if (receiving_odom_ && now() - odom_.header.stamp > ODOM_TIMEOUT) {
     transition_state(Event::odometry_stopped);
-    prev_odom_stamp_ = rclcpp::Time();
+    receiving_odom_ = false;
   }
 
   // Process any actions
@@ -331,7 +341,8 @@ void DroneBase::tello_response_callback(const tello_msgs::msg::TelloResponse::Sh
 
 void DroneBase::flight_data_callback(const tello_msgs::msg::FlightData::SharedPtr msg)
 {
-  if (!receiving_flight_data()) {
+  if (!receiving_flight_data_) {
+    receiving_flight_data_ = true;
     transition_state(Event::connected);
   }
 
@@ -340,18 +351,19 @@ void DroneBase::flight_data_callback(const tello_msgs::msg::FlightData::SharedPt
     transition_state(Event::low_battery);
   }
 
-  prev_flight_data_stamp_ = msg->header.stamp;
+  //prev_flight_data_stamp_ = msg->header.stamp;
+  flight_data_ = *msg;
 }
 
 void DroneBase::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
   // It's possible (but unlikely) to get an odom message before flight data
-  if (receiving_flight_data()) {
-    if (!receiving_odometry()) {
+  if (receiving_flight_data_) {
+    if (!receiving_odom_) {
+      receiving_odom_ = true;
       transition_state(Event::odometry_started);
     }
 
-    prev_odom_stamp_ = msg->header.stamp;
     odom_ = *msg;
   }
 }
@@ -382,7 +394,7 @@ void DroneBase::start_action(Action action)
     return;
   }
 
-  RCLCPP_INFO(get_logger(), "initiating %s", g_actions[action]);
+  RCLCPP_INFO(get_logger(), "in state '%s', initiating action '%s'", g_states[state_], g_actions[action]);
   action_mgr_->send(action, g_actions[action]);
 }
 
@@ -411,7 +423,7 @@ void DroneBase::transition_state(Event event)
 void DroneBase::transition_state(State next_state)
 {
   if (state_ != next_state) {
-    RCLCPP_INFO(get_logger(), "transition to %s", g_states[next_state]);
+    RCLCPP_INFO(get_logger(), "transition from '%s' to '%s'",g_states[state_], g_states[next_state]);
     state_ = next_state;
   }
 }
@@ -455,6 +467,7 @@ int main(int argc, char **argv)
   auto node = std::make_shared<drone_base::DroneBase>();
   auto result = rcutils_logging_set_logger_level(node->get_logger().get_name(), RCUTILS_LOG_SEVERITY_INFO);
 
+  // TODO rclcpp::Rate uses std::chrono::system_clock, so doesn't honor use_sim_time
   rclcpp::Rate r(drone_base::SPIN_RATE);
   while (rclcpp::ok())
   {

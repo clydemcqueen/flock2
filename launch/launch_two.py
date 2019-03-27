@@ -7,12 +7,10 @@ from launch.actions import ExecuteProcess
 
 # Launch a flock of drones
 
-# TODO use xacro or something similar to modify urdf files on-the-fly
-
 
 def generate_launch_description():
-    urdf1 = os.path.join(get_package_share_directory('flock2'), 'urdf', 'drone1.urdf')
-    urdf2 = os.path.join(get_package_share_directory('flock2'), 'urdf', 'drone2.urdf')
+    urdf1 = os.path.join(get_package_share_directory('tello_description'), 'urdf', 'drone_1.urdf')
+    urdf2 = os.path.join(get_package_share_directory('tello_description'), 'urdf', 'drone_2.urdf')
 
     dr1_ns = 'drone1'
     dr2_ns = 'drone2'
@@ -77,17 +75,17 @@ def generate_launch_description():
              node_name='base2', node_namespace=dr2_ns),
 
         # Mapper
-        Node(package='flock_vlam', node_executable='vmap_node', output='screen'),
+        Node(package='fiducial_vlam', node_executable='vmap_node', output='screen'),
 
         # N visual localizers
-        Node(package='flock_vlam', node_executable='vloc_node', output='screen',
+        Node(package='fiducial_vlam', node_executable='vloc_node', output='screen',
              node_name='vloc1', node_namespace=dr1_ns),
-        Node(package='flock_vlam', node_executable='vloc_node', output='screen',
+        Node(package='fiducial_vlam', node_executable='vloc_node', output='screen',
              node_name='vloc2', node_namespace=dr2_ns),
 
         # N Kalman filters
-        Node(package='flock2', node_executable='filter_node', output='screen',
+        Node(package='odom_filter', node_executable='filter_node', output='screen',
              node_name='filter1', node_namespace=dr1_ns, parameters=filter1_params),
-        Node(package='flock2', node_executable='filter_node', output='screen',
+        Node(package='odom_filter', node_executable='filter_node', output='screen',
              node_name='filter2', node_namespace=dr2_ns, parameters=filter2_params),
     ])

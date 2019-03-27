@@ -49,7 +49,7 @@ Visualization Manager:
     - Alpha: 1
       Class: rviz_default_plugins/RobotModel
       Collision Enabled: false
-      Description File: install/flock2/share/flock2/urdf/tello.urdf
+      Description File: install/tello_description/share/tello_description/urdf/tello.urdf
       Description Source: File
       Description Topic: /robot_description
       Enabled: true

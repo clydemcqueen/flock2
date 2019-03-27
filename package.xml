@@ -20,7 +20,6 @@
   <depend>builtin_interfaces</depend>
   <depend>cv_bridge</depend>
   <depend>Eigen3</depend>
-  <depend>flock_vlam_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>rclcpp</depend>

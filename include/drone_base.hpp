@@ -54,9 +54,15 @@ enum class Action
 class DroneBase : public rclcpp::Node
 {
   // Drone state
-  rclcpp::Time prev_flight_data_stamp_;
-  rclcpp::Time prev_odom_stamp_;
   State state_ = State::unknown;
+
+  // Flight data
+  bool receiving_flight_data_ = false;
+  tello_msgs::msg::FlightData flight_data_;
+
+  // Odom data
+  bool receiving_odom_ = false;
+  nav_msgs::msg::Odometry odom_;
 
   // Drone action manager
   std::unique_ptr<ActionMgr> action_mgr_;
@@ -68,7 +74,6 @@ class DroneBase : public rclcpp::Node
   bool mission_ = false;
   bool have_plan_ = false;
   nav_msgs::msg::Path plan_;
-  nav_msgs::msg::Odometry odom_; // TODO combine w/ prev_odom_stamp
   int plan_target_;
 
   // PID controllers
@@ -108,9 +113,6 @@ public:
   void spin_once();
 
 private:
-
-  bool receiving_flight_data() { return prev_flight_data_stamp_.nanoseconds() > 0; }
-  bool receiving_odometry() { return prev_odom_stamp_.nanoseconds() > 0; }
 
   // Callbacks
   void joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg);

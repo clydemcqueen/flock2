@@ -11,7 +11,7 @@ from launch.actions import ExecuteProcess
 def generate_launch_description():
     emulator_path = 'install/tello_driver/lib/tello_driver/tello_emulator'
     tello_driver_params = [{'drone_ip': '127.0.0.1'}]
-    urdf = os.path.join(get_package_share_directory('flock2'), 'urdf', 'tello.urdf')
+    urdf = os.path.join(get_package_share_directory('tello_description'), 'urdf', 'tello.urdf')
 
     return LaunchDescription([
         # Rviz
@@ -43,14 +43,14 @@ def generate_launch_description():
              node_name='drone_base', node_namespace='solo'),
 
         # Mapper
-        Node(package='flock_vlam', node_executable='vmap_node', output='screen'),
+        Node(package='fiducial_vlam', node_executable='vmap_node', output='screen'),
 
         # Visual localizer
-        Node(package='flock_vlam', node_executable='vloc_node', output='screen',
+        Node(package='fiducial_vlam', node_executable='vloc_node', output='screen',
              node_name='vloc_node', node_namespace='solo'),
 
         # Kalman filter
-        Node(package='flock2', node_executable='filter_node', output='screen',
+        Node(package='odom_filter', node_executable='filter_node', output='screen',
              node_name='filter_node', node_namespace='solo'),
 
         # Global planner

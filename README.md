@@ -2,7 +2,8 @@
 
 `flock2` can fly a swarm of [DJI Tello](https://store.dji.com/product/tello) drones.
 `flock2` is built on top of [ROS2](https://index.ros.org/doc/ros2/),
- [flock_vlam](https://github.com/ptrmu/flock_vlam)
+ [fiducial_vlam](https://github.com/ptrmu/fiducial_vlam),
+ [odom_filter](https://github.com/clydemcqueen/odom_filter),
  and [tello_ros](https://github.com/clydemcqueen/tello_ros).
 
 ## Installation
@@ -11,16 +12,12 @@
 
 Set up a Ubuntu 18.04 box or VM. This should include ffmpeg 3.4.4 and OpenCV 3.2.
 
-_TODO OpenCV 3.4_
-
 ### 2. Set up your Python environment
 
 Use your favorite Python package manager to set up Python 3.6+ and the following packages:
 
 * numpy 1.15.2
 * transformations 2018.9.5
-
-_TODO no more Python?_
 
 ### 3. Set up your ROS environment
 
@@ -35,18 +32,19 @@ Install these additional packages:
 sudo apt install ros-crystal-cv-bridge
 ~~~
 
-### 4. Install flock2, flock_vlam and tello_ros
+### 4. Install dependencies
 
 Download, compile and install the following packages:
 ~~~
 mkdir -p ~/flock2_ws/src
 cd ~/flock2_ws/src
 git clone https://github.com/clydemcqueen/flock2.git
-git clone https://github.com/ptrmu/flock_vlam.git
+git clone https://github.com/ptrmu/fiducial_vlam.git
 git clone https://github.com/clydemcqueen/tello_ros.git
 cd ..
 source /opt/ros/crystal/setup.bash
-colcon build --event-handlers console_direct+
+# If you didn't install Gazebo, avoid building tello_gazebo:
+colcon build --event-handlers console_direct+ --packages-skip tello_gazebo
 ~~~
 
 ## Running
@@ -106,7 +104,7 @@ There must be at least one 6x6 ArUco marker, with id 1, associated with the aren
 Marker 1's pose is known in advance, the other ArUco marker poses are estimated during flight.
 The drones will use ArUco marker poses to estimate their current pose.
 
-### The mission
+### The mission (under development)
 
 A mission is defined as autonomous flight by all drones.
 A mission is initiated when the user hits the _start mission_ button on the gamepad.
@@ -170,28 +168,6 @@ Controls a single Tello drone. Akin to `move_base` in the ROS navigation stack.
 ##### Published services
 
 * `~tello_command` tello_msgs/TelloCommand
-
-#### filter_node
-
-`flock_vlam` computes a camera pose from ArUco markers placed in the environment,
-and `filter_node` uses a Kalman filter to estimate odometry from successive camera poses.
-
-##### Subscribed topics
-
-* `/start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
-* `/stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
-* `~camera_pose` [geometry_msgs/PoseWithCovarianceStamped](http://docs.ros.org/api/geometry_msgs/html/msg/PoseWithCovarianceStamped.html)
-
-##### Published topics
-
-* `~filtered_odom` [nav_msgs/Odometry](http://docs.ros.org/api/nav_msgs/html/msg/Odometry.html)
-* `~estimated_path` [nav_msgs/Path](http://docs.ros.org/api/nav_msgs/html/msg/Path.html)
-* `/tf` [tf2_msgs/TFMessage](http://docs.ros.org/api/tf2_msgs/html/msg/TFMessage.html)
-
-##### Parameters
-
-* `map_frame` is the world frame. The default is `map`.
-* `base_frame` is the coordinate frame of the drone. The default is `base_link`.
 
 #### global_planner
 
