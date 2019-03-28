@@ -17,11 +17,17 @@ namespace simple_planner {
 //   Adjust yaw so that that drones can see markers
 
 const double CRUISING_Z = 1.2;
-const double SEPARATION = 1.0;
+const double SEPARATION = 4.0;
+
+#define SUPER_SIMPLE
 
 SimplePlanner::SimplePlanner(const std::vector<geometry_msgs::msg::PoseStamped> &landing_poses)
 {
+#ifdef SUPER_SIMPLE
+  assert(landing_poses.size() > 2);
+#else
   assert(landing_poses.size() > 0);
+#endif
 
   // Waypoints are directly above landing poses
   std::vector<geometry_msgs::msg::PoseStamped> waypoints = landing_poses;
@@ -29,6 +35,7 @@ SimplePlanner::SimplePlanner(const std::vector<geometry_msgs::msg::PoseStamped> 
     i->pose.position.z = CRUISING_Z;
   }
 
+#ifndef SUPER_SIMPLE
   if (waypoints.size() == 1) {
     // Add a 2nd waypoint
     geometry_msgs::msg::PoseStamped p = waypoints[0];
@@ -47,15 +54,16 @@ SimplePlanner::SimplePlanner(const std::vector<geometry_msgs::msg::PoseStamped> 
     p.pose.position.y = (y1 + y2 + sqrt(3) * (x2 - x1)) / 2;
     waypoints.push_back(p);
   }
+#endif
 
-  for (int i = 0; i <= waypoints.size(); i++) {
+  for (int i = 0; i < waypoints.size(); i++) {
 
     // Init path
     nav_msgs::msg::Path path;
     path.header = waypoints[i].header;
     plans_.push_back(path);
 
-    // Copy waypoints
+    // Copy waypoints into path
     for (int j = 0; j < waypoints.size(); j++) {
       plans_[i].poses.push_back(waypoints[(i + j) % waypoints.size()]);
     }

@@ -51,18 +51,20 @@ enum class Action
 // DroneBase node
 //=============================================================================
 
+// rclcpp::Time t() initializes nanoseconds to 0
+bool valid(rclcpp::Time &t) { return t.nanoseconds() > 0; }
+
 class DroneBase : public rclcpp::Node
 {
   // Drone state
   State state_ = State::unknown;
 
   // Flight data
-  bool receiving_flight_data_ = false;
-  tello_msgs::msg::FlightData flight_data_;
+  rclcpp::Time flight_data_time_;
 
   // Odom data
-  bool receiving_odom_ = false;
-  nav_msgs::msg::Odometry odom_;
+  rclcpp::Time odom_time_;
+  geometry_msgs::msg::Pose pose_;
 
   // Drone action manager
   std::unique_ptr<ActionMgr> action_mgr_;
@@ -77,10 +79,10 @@ class DroneBase : public rclcpp::Node
   int plan_target_;
 
   // PID controllers
-  pid::Controller x_controller_{false, 0.3, 0, 0};
-  pid::Controller y_controller_{false, 0.3, 0, 0};
-  pid::Controller z_controller_{false, 0.3, 0, 0};
-  pid::Controller yaw_controller_{true, 0.3, 0, 0};
+  pid::Controller x_controller_{false, 0.05, 0, 0};
+  pid::Controller y_controller_{false, 0.05, 0, 0};
+  pid::Controller z_controller_{false, 0.05, 0, 0};
+  pid::Controller yaw_controller_{true, 0.05, 0, 0};
 
   // Joystick assignments
   int joy_axis_throttle_ = JOY_AXIS_RIGHT_FB;
@@ -129,8 +131,16 @@ private:
   void transition_state(Event event);
   void transition_state(State next_state);
 
-  // Motion
+  // Set twist_
   void set_velocity(double throttle, double strafe, double vertical, double yaw);
+
+  // Set twist_ and publish
+  void publish_velocity(double throttle, double strafe, double vertical, double yaw);
+
+  // All stop: set twist_ to 0, 0, 0, 0 and publish
+  void all_stop();
+
+  // Set PID controllers based on
   void set_pid_controllers();
 };
 

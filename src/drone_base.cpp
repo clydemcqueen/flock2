@@ -19,8 +19,7 @@ const int MIN_BATTERY{20};                                // Percent
 // Utilities
 //=============================================================================
 
-template<typename T>
-inline T clamp(const T v, const T min, const T max)
+double clamp(const double v, const double min, const double max)
 {
   return v > max ? max : (v < min ? min : v);
 }
@@ -35,7 +34,7 @@ double get_yaw(const geometry_msgs::msg::Pose &p)
   return yaw;
 }
 
-inline bool close_enough(const geometry_msgs::msg::Pose &p1, const geometry_msgs::msg::Pose &p2)
+bool close_enough(const geometry_msgs::msg::Pose &p1, const geometry_msgs::msg::Pose &p2)
 {
   const double EPSILON_XYZ = 0.1;
   const double EPSILON_YAW = 0.1;
@@ -46,7 +45,7 @@ inline bool close_enough(const geometry_msgs::msg::Pose &p1, const geometry_msgs
     std::abs(get_yaw(p1) - get_yaw(p2)) < EPSILON_YAW;
 }
 
-inline bool button_down(const sensor_msgs::msg::Joy::SharedPtr curr, const sensor_msgs::msg::Joy &prev, int index)
+bool button_down(const sensor_msgs::msg::Joy::SharedPtr curr, const sensor_msgs::msg::Joy &prev, int index)
 {
   return curr->buttons[index] && !prev.buttons[index];
 }
@@ -204,17 +203,21 @@ DroneBase::DroneBase() : Node{"drone_base"}
 
 void DroneBase::spin_once()
 {
+  rclcpp::Time ros_time = now();
+
   // Check for flight data timeout
-  if (receiving_flight_data_ && now() - flight_data_.header.stamp > FLIGHT_DATA_TIMEOUT) {
+  if (valid(flight_data_time_) && ros_time - flight_data_time_ > FLIGHT_DATA_TIMEOUT) {
+    RCLCPP_ERROR(get_logger(), "flight data timeout, now %g, last %g", ros_time.seconds(), flight_data_time_.seconds());
     transition_state(Event::disconnected);
-    receiving_flight_data_ = false;
-    receiving_odom_ = false;
+    flight_data_time_ = rclcpp::Time();
+    odom_time_ = rclcpp::Time();
   }
 
   // Check for odometry timeout
-  if (receiving_odom_ && now() - odom_.header.stamp > ODOM_TIMEOUT) {
+  if (valid(odom_time_) && ros_time - odom_time_ > ODOM_TIMEOUT) {
+    RCLCPP_ERROR(get_logger(), "odom timeout, now %g, last %g", ros_time.seconds(), odom_time_.seconds());
     transition_state(Event::odometry_stopped);
-    receiving_odom_ = false;
+    odom_time_ = rclcpp::Time();
   }
 
   // Process any actions
@@ -239,23 +242,25 @@ void DroneBase::spin_once()
         }
       }
       else if (state_ == State::flight_odom) {
-        if (close_enough(plan_.poses[plan_target_].pose, odom_.pose.pose)) {
+        if (close_enough(plan_.poses[plan_target_].pose, pose_)) {
           // Advance to the next target
           if (++plan_target_ < plan_.poses.size()) {
             set_pid_controllers();
           }
         } else {
           // Fly to target pose
-          double ubar_x = x_controller_.calc(odom_.pose.pose.position.x, DT, 0); // No feedforward
-          double ubar_y = y_controller_.calc(odom_.pose.pose.position.y, DT, 0);
-          double ubar_z = z_controller_.calc(odom_.pose.pose.position.z, DT, 0);
-          double ubar_yaw = yaw_controller_.calc(get_yaw(odom_.pose.pose), DT, 0);
+          double ubar_x = x_controller_.calc(pose_.position.x, DT, 0); // No feedforward
+          double ubar_y = y_controller_.calc(pose_.position.y, DT, 0);
+          double ubar_z = z_controller_.calc(pose_.position.z, DT, 0);
+          double ubar_yaw = yaw_controller_.calc(get_yaw(pose_), DT, 0);
           set_velocity(ubar_x, ubar_y, ubar_z, ubar_yaw); // TODO accel vs vel
           cmd_vel_pub_->publish(twist_);
         }
       }
       else if (state_ == State::flight) {
-        RCLCPP_ERROR(get_logger(), "lost odometry during mission");
+        RCLCPP_DEBUG(get_logger(), "lost odometry during mission");
+        all_stop();
+        // TODO try to recover
       }
     } else {
       // We're done
@@ -282,6 +287,8 @@ void DroneBase::stop_mission_callback(const std_msgs::msg::Empty::SharedPtr msg)
   (void)msg;
   mission_ = false;
   RCLCPP_INFO(get_logger(), "stop mission");
+  all_stop();
+  // TODO land
 }
 
 void DroneBase::joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg)
@@ -341,30 +348,30 @@ void DroneBase::tello_response_callback(const tello_msgs::msg::TelloResponse::Sh
 
 void DroneBase::flight_data_callback(const tello_msgs::msg::FlightData::SharedPtr msg)
 {
-  if (!receiving_flight_data_) {
-    receiving_flight_data_ = true;
+  if (!valid(flight_data_time_)) {
     transition_state(Event::connected);
   }
 
   if (msg->bat < MIN_BATTERY && state_ != State::low_battery) {
     RCLCPP_ERROR(get_logger(), "LOW BATTERY %d", msg->bat);
     transition_state(Event::low_battery);
+    all_stop();
+    // TODO land
   }
 
-  //prev_flight_data_stamp_ = msg->header.stamp;
-  flight_data_ = *msg;
+  flight_data_time_ = msg->header.stamp;
 }
 
 void DroneBase::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
   // It's possible (but unlikely) to get an odom message before flight data
-  if (receiving_flight_data_) {
-    if (!receiving_odom_) {
-      receiving_odom_ = true;
+  if (valid(flight_data_time_)) {
+    if (!valid(odom_time_)) {
       transition_state(Event::odometry_started);
     }
 
-    odom_ = *msg;
+    odom_time_ = msg->header.stamp;
+    pose_ = msg->pose.pose;
   }
 }
 
@@ -434,6 +441,18 @@ void DroneBase::set_velocity(double throttle, double strafe, double vertical, do
   twist_.linear.y = clamp(strafe, -1.0, 1.0);
   twist_.linear.z = clamp(vertical, -1.0, 1.0);
   twist_.angular.z = clamp(yaw, -1.0, 1.0);
+}
+
+void DroneBase::publish_velocity(double throttle, double strafe, double vertical, double yaw)
+{
+  set_velocity(throttle, strafe, vertical, yaw);
+  cmd_vel_pub_->publish(twist_);
+}
+
+void DroneBase::all_stop()
+{
+  RCLCPP_DEBUG(get_logger(), "ALL STOP");
+  publish_velocity(0, 0, 0, 0);
 }
 
 void DroneBase::set_pid_controllers()
