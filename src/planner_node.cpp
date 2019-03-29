@@ -1,4 +1,4 @@
-#include "global_planner.hpp"
+#include "planner_node.hpp"
 
 #include "simple_planner.hpp"
 

@@ -114,33 +114,18 @@ ament_target_dependencies(
 )
 
 #=============
-# Global planner node
+# Planner node
 #=============
 
 add_executable(
-  global_planner
-  src/global_planner.cpp
+  planner_node
+  src/planner_node.cpp
   src/simple_planner.cpp
-)
-
-ament_target_dependencies(
-  global_planner
-  nav_msgs
-  rclcpp
-  std_msgs
-)
-
-#=============
-# Local planner node
-#=============
-
-add_executable(
-  local_planner
   src/local_planner.cpp
 )
 
 ament_target_dependencies(
-  local_planner
+  planner_node
   nav_msgs
   rclcpp
   std_msgs
@@ -156,8 +141,7 @@ install(
   flock_base
   drone_base
   usb_camera
-  global_planner
-  local_planner
+  planner_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
