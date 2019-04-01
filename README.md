@@ -55,8 +55,8 @@ colcon build --event-handlers console_direct+ --packages-skip tello_gazebo
 
 Turn on the drone, connect to `TELLO-XXXXX` via wifi, and launch ROS2:
 ~~~
-source /opt/ros/crystal/setup.bash
-source ~/flock2_ws/install/setup.bash
+cd ~/flock2_ws
+source install/setup.bash
 ros2 launch flock2 launch_one.py
 ~~~
 
@@ -117,11 +117,9 @@ or at least one drone has to be flown around manually to build a good map before
 The overall mission dataflow looks like this:
 
 1. `flock_base` publishes a message on the `/start_mission` topic
-2. `global_planner` generates an overall pattern of flight for all drones, and publishes a 
-sequence waypoints for each drone on `/[prefix]/global_plan`
-3. `local_planner` subscribes to `~global_plan`, turns the waypoints into a detailed flight path,
-and publishes it on `~local_plan`
-4. `drone_base` subscribes to `~local_plan` and `~filtered_odometry`, runs a PID controller,
+2. `planner_node` generates an overall pattern of flight for all drones, and publishes a 
+sequence waypoints for each drone on `/[prefix]/plan`
+3. `drone_base` subscribes to `~plan` and `~filtered_odometry`, runs a PID controller,
 and sends commands to `tello_ros`
 
 If odometry stops arriving `drone_base` will execute a series of recovery tasks, which might include landing.
@@ -169,7 +167,7 @@ Controls a single Tello drone. Akin to `move_base` in the ROS navigation stack.
 
 * `~tello_command` tello_msgs/TelloCommand
 
-#### global_planner
+#### planner_node
 
 Compute and publish a set of waypoints for each drone in a flock.
 
@@ -181,7 +179,7 @@ Compute and publish a set of waypoints for each drone in a flock.
 
 ##### Published topics
 
-* `~[prefix]/global_plan` [nav_msgs/Path](http://docs.ros.org/api/nav_msgs/html/msg/Path.html)
+* `~[prefix]/plan` [nav_msgs/Path](http://docs.ros.org/api/nav_msgs/html/msg/Path.html)
 
 ##### Parameters
 
@@ -191,17 +189,3 @@ The default is `['solo']`.
 * `arena_x` defines the X extent of the arena, in meters. The default is 2.
 * `arena_y` defines the Y extent of the arena, in meters. The default is 2.
 * `arena_z` defines the Z extent of the arena, in meters. Must be greater than 1.5. The default is 2.
-
-#### local_planner
-
-Given a set of waypoints for a drone, compute and publish a detailed path suitable for a PID controller.
-
-##### Subscribed topics
-
-* `/start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
-* `/stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
-* `~global_plan` [nav_msgs/Path](http://docs.ros.org/api/nav_msgs/html/msg/Path.html)
-
-##### Published topics
-
-* `~local_plan` [nav_msgs/Path](http://docs.ros.org/api/nav_msgs/html/msg/Path.html)

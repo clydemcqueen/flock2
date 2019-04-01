@@ -60,9 +60,9 @@ def generate_launch_description():
                 'drones': drones
             }]),
 
-        # WIP: global planner
-        Node(package='flock2', node_executable='global_planner', output='screen',
-             node_name='global_planner', parameters=[{
+        # WIP: planner
+        Node(package='flock2', node_executable='planner_node', output='screen',
+             node_name='planner_node', parameters=[{
                 'use_sim_time': True,                           # Use /clock if available
                 'drones': drones,
                 'arena_x': -5.0,

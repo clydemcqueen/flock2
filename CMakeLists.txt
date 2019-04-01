@@ -121,7 +121,6 @@ add_executable(
   planner_node
   src/planner_node.cpp
   src/simple_planner.cpp
-  src/local_planner.cpp
 )
 
 ament_target_dependencies(

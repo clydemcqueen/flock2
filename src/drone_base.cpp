@@ -15,6 +15,8 @@ const rclcpp::Duration FLIGHT_DATA_TIMEOUT{1500000000};   // Nanoseconds
 const rclcpp::Duration ODOM_TIMEOUT{1500000000};          // Nanoseconds
 const int MIN_BATTERY{20};                                // Percent
 
+const double STABILIZE_TIME = 3;                          // Seconds TODO share w/ plan
+
 //=============================================================================
 // Utilities
 //=============================================================================
@@ -196,7 +198,7 @@ DroneBase::DroneBase() : Node{"drone_base"}
   tello_response_sub_ = create_subscription<tello_msgs::msg::TelloResponse>("tello_response", tello_response_cb);
   flight_data_sub_ = create_subscription<tello_msgs::msg::FlightData>("flight_data", flight_data_cb);
   odom_sub_ = create_subscription<nav_msgs::msg::Odometry>("filtered_odom", odom_cb);
-  plan_sub_ = create_subscription<nav_msgs::msg::Path>("global_plan", plan_cb);  // TODO local_plan
+  plan_sub_ = create_subscription<nav_msgs::msg::Path>("plan", plan_cb);
 
   RCLCPP_INFO(get_logger(), "drone initialized");
 }
@@ -223,14 +225,14 @@ void DroneBase::spin_once()
   // Process any actions
   action_mgr_->spin_once();
 
-  // Manual flight
+  // Manual flight TODO move this to joy_callback
   if (!mission_) {
     if ((state_ == State::flight || state_ == State::flight_odom) && !action_mgr_->busy()) {
       cmd_vel_pub_->publish(twist_);
     }
   }
 
-  // Automated flight
+  // Automated flight TODO move this to pose_callback
   if (mission_ && have_plan_) {
     // We have a plan
     if (plan_target_ < plan_.poses.size()) {
@@ -248,7 +250,7 @@ void DroneBase::spin_once()
             set_pid_controllers();
           }
         } else {
-          // Fly to target pose
+          // Fly to target pose TODO compute point
           double ubar_x = x_controller_.calc(pose_.position.x, DT, 0); // No feedforward
           double ubar_y = y_controller_.calc(pose_.position.y, DT, 0);
           double ubar_z = z_controller_.calc(pose_.position.z, DT, 0);
