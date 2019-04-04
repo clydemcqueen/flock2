@@ -341,7 +341,9 @@ void DroneBase::flight_data_callback(const tello_msgs::msg::FlightData::SharedPt
   if (msg->bat < MIN_BATTERY && state_ != State::low_battery) {
     RCLCPP_ERROR(get_logger(), "low battery (%d)", msg->bat);
     transition_state(Event::low_battery);
-    stop_mission();  // TODO handle non-mission case
+    if (mission_) {
+      stop_mission();
+    }
   }
 
   flight_data_time_ = msg->header.stamp;
@@ -360,7 +362,7 @@ void DroneBase::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
     // Automated flight
     if (mission_ && have_plan_ && target_ < plan_.poses.size() && !action_mgr_->busy()) {
       if (msg_time > curr_target_time_ + STABILIZE) {
-        if (close_enough(plan_.poses[target_].pose, pose_)) {  // TODO should use current_target_, which should be a pose
+        if (close_enough(curr_target_, pose_)) {
           // Advance to the next target
           set_target(target_ + 1);
         } else {
@@ -373,9 +375,9 @@ void DroneBase::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
         if (msg_time < curr_target_time_) {
           auto elapsed_time = (odom_time_ - prev_target_time_).nanoseconds();
           if (elapsed_time > 0) {  // TODO this is sometimes 0, at least as a double -- why?
-            double x = prev_target_.x + vx_ * elapsed_time / 1e9;
-            double y = prev_target_.y + vy_ * elapsed_time / 1e9;
-            double z = prev_target_.z + vz_ * elapsed_time / 1e9;
+            double x = prev_target_.position.x + vx_ * elapsed_time / 1e9;
+            double y = prev_target_.position.y + vy_ * elapsed_time / 1e9;
+            double z = prev_target_.position.z + vz_ * elapsed_time / 1e9;
             x_controller_.set_target(x);
             y_controller_.set_target(y);
             z_controller_.set_target(z);
@@ -480,43 +482,50 @@ void DroneBase::set_target(int target)
 {
   target_ = target;
 
+  // Handle "done" case
   if (target_ < 0 || target_ >= plan_.poses.size()) {
     return;
   }
 
-  double yaw = get_yaw(plan_.poses[target_].pose);
+  // Set current target
+  curr_target_ = plan_.poses[target_].pose;
+  curr_target_time_ = rclcpp::Time(plan_.poses[target_].header.stamp) - STABILIZE;
 
   RCLCPP_INFO(get_logger(), "target %d: x %g, y %g, z %g, yaw %g",
     target_,
-    plan_.poses[target_].pose.position.x,
-    plan_.poses[target_].pose.position.y,
-    plan_.poses[target_].pose.position.z,
-    yaw);
+    curr_target_.position.x,
+    curr_target_.position.y,
+    curr_target_.position.z,
+    get_yaw(curr_target_));
 
-  curr_target_ = plan_.poses[target_].pose.position;
-  curr_target_time_ = rclcpp::Time(plan_.poses[target_].header.stamp) - STABILIZE;
-
-  if (target_ > 0) {
-    prev_target_ = plan_.poses[target_ - 1].pose.position;
-    prev_target_time_ = rclcpp::Time(plan_.poses[target_ - 1].header.stamp);
-
-    int64_t dt_ns = (curr_target_time_ - prev_target_time_).nanoseconds();
-    assert(dt_ns > 0);
-
-    // Velocity vector from previous target to this target
-    vx_ = (curr_target_.x - prev_target_.x) / dt_ns * 1e9;
-    vy_ = (curr_target_.y - prev_target_.y) / dt_ns * 1e9;
-    vz_ = (curr_target_.z - prev_target_.z) / dt_ns * 1e9;
-    // TODO also handle yaw
-
-    RCLCPP_INFO(get_logger(), "velocity (m/s): x %g, y %g, z %g", vx_, vy_, vz_);
-
-  } else {
-    // Bootstrap case TODO
-    prev_target_ = plan_.poses[target_].pose.position;
+  // Set previous target, as well as velocity
+  if (target_ == 0) {
+    // Takeoff case
+    prev_target_ = curr_target_;
     prev_target_time_ = now();
     vx_ = vy_ = vz_ = 0;
+  } else {
+    // Typical case
+    prev_target_ = plan_.poses[target_ - 1].pose;
+    prev_target_time_ = rclcpp::Time(plan_.poses[target_ - 1].header.stamp);
+
+    auto flight_time = (curr_target_time_ - prev_target_time_).nanoseconds();
+    assert(flight_time > 0);
+
+    // Velocity vector from previous target to this target
+    vx_ = (curr_target_.position.x - prev_target_.position.x) / flight_time * 1e9;
+    vy_ = (curr_target_.position.y - prev_target_.position.y) / flight_time * 1e9;
+    vz_ = (curr_target_.position.z - prev_target_.position.z) / flight_time * 1e9;
+    // TODO also calc yaw velocity
+
+    RCLCPP_INFO(get_logger(), "velocity (m/s): x %g, y %g, z %g", vx_, vy_, vz_);
   }
+
+  // Initialize PID controllers to previous target, these will be updated in the odom callback
+  x_controller_.set_target(prev_target_.position.x);
+  y_controller_.set_target(prev_target_.position.y);
+  z_controller_.set_target(prev_target_.position.z);
+  yaw_controller_.set_target(get_yaw(prev_target_));
 }
 
 } // namespace drone_base

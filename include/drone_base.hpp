@@ -73,15 +73,15 @@ class DroneBase : public rclcpp::Node
   geometry_msgs::msg::Twist twist_;
 
   // Mission state
-  bool mission_ = false;
-  bool have_plan_ = false;
-  nav_msgs::msg::Path plan_;
-  int target_;
-
-  // TODO
-  rclcpp::Time prev_target_time_, curr_target_time_;
-  geometry_msgs::msg::Point prev_target_, curr_target_; // TODO should be pose
-  double vx_, vy_, vz_;
+  bool mission_ = false;                  // We're in a mission (flying autonomously)
+  bool have_plan_ = false;                // We have a flight plan
+  nav_msgs::msg::Path plan_;              // The flight plan
+  int target_;                            // Current target (index into plan_)
+  geometry_msgs::msg::Pose prev_target_;  // Previous target pose
+  geometry_msgs::msg::Pose curr_target_;  // Current target pose
+  rclcpp::Time prev_target_time_;         // Time we left the previous target
+  rclcpp::Time curr_target_time_;         // Deadline to hit the current target
+  double vx_, vy_, vz_;                   // Velocity required to hit the current target
 
   // PID controllers
   pid::Controller x_controller_{false, 0.1, 0, 0};
