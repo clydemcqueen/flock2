@@ -1,6 +1,6 @@
 #include "action_mgr.hpp"
 
-// TODO time out if tello_driver hasn't responded in ~10s, this can happen if tello_driver was restarted
+// Future: time out if tello_driver hasn't responded in ~10s, this can happen if tello_driver was restarted
 
 namespace drone_base {
 

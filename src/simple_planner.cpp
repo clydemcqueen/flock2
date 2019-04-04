@@ -48,7 +48,7 @@ double distance(const geometry_msgs::msg::Point &p1, const geometry_msgs::msg::P
   return sqrt(pow(p2.x - p1.x, 2) + pow(p2.y - p1.y, 2) + pow(p2.z - p1.z, 2));
 }
 
-SimplePlanner::SimplePlanner(const std::vector<geometry_msgs::msg::PoseStamped> &landing_poses)  // TODO just need Pose
+SimplePlanner::SimplePlanner(const std::vector<geometry_msgs::msg::PoseStamped> &landing_poses)
 {
   assert(landing_poses.size() > 0);
 

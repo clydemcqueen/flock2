@@ -88,7 +88,7 @@ def generate_launch_description():
                 }]),
 
             # Localize this drone against the map
-            # TODO need odometry for base_link, not camera_link
+            # Future: need odometry for base_link, not camera_link
             Node(package='fiducial_vlam', node_executable='vloc_node', output='screen',
                  node_name='vloc_node', node_namespace=namespace, parameters=[{
                     'use_sim_time': True,                       # Use /clock if available

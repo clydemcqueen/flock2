@@ -235,7 +235,7 @@ void DroneBase::spin_once()
         }
       }
       else if (state_ == State::flight) {
-        // TODO try to recover
+        // Future: try to recover
         RCLCPP_ERROR(get_logger(), "lost odometry during mission");
         stop_mission();
       }
@@ -269,7 +269,7 @@ void DroneBase::stop_mission()
   have_plan_ = false;
   all_stop();
   if (state_ == State::flight || state_ == State::flight_odom) {
-    // TODO queue action if busy
+    // Future: queue action if busy
     start_action(Action::land);
   }
 }
@@ -546,7 +546,7 @@ int main(int argc, char **argv)
   auto node = std::make_shared<drone_base::DroneBase>();
   //auto result = rcutils_logging_set_logger_level(node->get_logger().get_name(), RCUTILS_LOG_SEVERITY_INFO);
 
-  // TODO rclcpp::Rate uses std::chrono::system_clock, so doesn't honor use_sim_time
+  // rclcpp::Rate uses std::chrono::system_clock, so doesn't honor use_sim_time
   rclcpp::Rate r(drone_base::SPIN_RATE);
   while (rclcpp::ok())
   {
