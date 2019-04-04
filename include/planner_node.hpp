@@ -38,17 +38,11 @@ public:
 
 class PlannerNode : public rclcpp::Node
 {
-  // Global state
-  bool mission_;
-
   // Arena runs from (0, 0, 0) to this point
   geometry_msgs::msg::Point arena_;
 
   // Per-drone info
   std::vector<std::shared_ptr<DroneInfo>> drones_;
-
-  // Plans
-  std::vector<nav_msgs::msg::Path> plans_;
 
   // Global subscriptions
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr start_mission_sub_;
@@ -59,14 +53,12 @@ public:
   explicit PlannerNode();
   ~PlannerNode() {}
 
-  void spin_once();
-
 private:
-
-  void spin_1Hz();
 
   void start_mission_callback(const std_msgs::msg::Empty::SharedPtr msg);
   void stop_mission_callback(const std_msgs::msg::Empty::SharedPtr msg);
+
+  void create_and_publish_plans();
 };
 
 } // namespace planner_node

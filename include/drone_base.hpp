@@ -76,13 +76,18 @@ class DroneBase : public rclcpp::Node
   bool mission_ = false;
   bool have_plan_ = false;
   nav_msgs::msg::Path plan_;
-  int plan_target_;
+  int target_;
+
+  // TODO
+  rclcpp::Time prev_target_time_, curr_target_time_;
+  geometry_msgs::msg::Point prev_target_, curr_target_; // TODO should be pose
+  double vx_, vy_, vz_;
 
   // PID controllers
-  pid::Controller x_controller_{false, 0.05, 0, 0};
-  pid::Controller y_controller_{false, 0.05, 0, 0};
-  pid::Controller z_controller_{false, 0.05, 0, 0};
-  pid::Controller yaw_controller_{true, 0.05, 0, 0};
+  pid::Controller x_controller_{false, 0.1, 0, 0};
+  pid::Controller y_controller_{false, 0.1, 0, 0};
+  pid::Controller z_controller_{false, 0.1, 0, 0};
+  pid::Controller yaw_controller_{true, 0.1, 0, 0};
 
   // Joystick assignments
   int joy_axis_throttle_ = JOY_AXIS_RIGHT_FB;
@@ -131,17 +136,17 @@ private:
   void transition_state(Event event);
   void transition_state(State next_state);
 
-  // Set twist_
-  void set_velocity(double throttle, double strafe, double vertical, double yaw);
-
   // Set twist_ and publish
   void publish_velocity(double throttle, double strafe, double vertical, double yaw);
 
   // All stop: set twist_ to 0, 0, 0, 0 and publish
   void all_stop();
 
-  // Set PID controllers based on
-  void set_pid_controllers();
+  // Set target
+  void set_target(int target);
+
+  // Stop mission
+  void stop_mission();
 };
 
 } // namespace drone_base

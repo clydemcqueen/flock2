@@ -52,7 +52,7 @@ void DroneInfo::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 // PlannerNode
 //====================
 
-PlannerNode::PlannerNode() : Node{"planner_node"}, mission_{false}
+PlannerNode::PlannerNode() : Node{"planner_node"}
 {
   // Get drone namespaces
   std::vector<std::string> namespaces{"solo"};
@@ -79,63 +79,47 @@ PlannerNode::PlannerNode() : Node{"planner_node"}, mission_{false}
   }
 }
 
-void PlannerNode::spin_1Hz()
+void PlannerNode::create_and_publish_plans()
 {
+  // Check arena volume
   if (std::abs(arena_.x) < MIN_ARENA_XY || std::abs(arena_.y) < MIN_ARENA_XY || arena_.z < MIN_ARENA_Z) {
     RCLCPP_ERROR(get_logger(), "arena must be at least (%g, %g, %g)", MIN_ARENA_XY, MIN_ARENA_XY, MIN_ARENA_Z);
     return;
   }
 
-  if (!mission_) {
-    return;
+  // Make sure we have landing poses
+  for (auto i = drones_.begin(); i != drones_.end(); i++) {
+    if (!(*i)->valid_landing_pose()) {
+      RCLCPP_ERROR(get_logger(), "waiting for landing pose for %s (and possibly more)", (*i)->ns().c_str());
+      return;
+    }
   }
 
-  // Create plans
-  if (plans_.size() == 0) {
-    // Wait until we have landing poses for all drones
-    for (auto i = drones_.begin(); i != drones_.end(); i++) {
-      if (!(*i)->valid_landing_pose()) {
-        RCLCPP_INFO(get_logger(), "waiting for landing pose for %s (and possibly more)", (*i)->ns().c_str());
-        return;
-      }
-    }
-
-    std::vector<geometry_msgs::msg::PoseStamped> landing_poses;
-    for (auto i = drones_.begin(); i != drones_.end(); i++) {
-      landing_poses.push_back((*i)->landing_pose());
-    }
-    simple_planner::SimplePlanner planner(landing_poses);
-    plans_ = planner.plans();
-    RCLCPP_INFO(get_logger(), "plan(s) created");
+  // Create N plans
+  std::vector<geometry_msgs::msg::PoseStamped> landing_poses;
+  for (auto i = drones_.begin(); i != drones_.end(); i++) {
+    landing_poses.push_back((*i)->landing_pose());
   }
+  simple_planner::SimplePlanner planner(landing_poses);
+  std::vector<nav_msgs::msg::Path> plans = planner.plans(now());
+  RCLCPP_INFO(get_logger(), "plan(s) created");
 
   // Publish N plans
   for (int i = 0; i < drones_.size(); i++) {
-    drones_[i]->plan_pub()->publish(plans_[i]);
-  }
-}
-
-void PlannerNode::spin_once()
-{
-  static int count_1Hz = 0;
-
-  if (++count_1Hz > SPIN_RATE) {
-    spin_1Hz();
-    count_1Hz = 0;
+    drones_[i]->plan_pub()->publish(plans[i]);
   }
 }
 
 void PlannerNode::start_mission_callback(const std_msgs::msg::Empty::SharedPtr msg)
 {
   (void)msg;
-  mission_ = true;
   RCLCPP_INFO(get_logger(), "start mission");
+  create_and_publish_plans();
 }
 
 void PlannerNode::stop_mission_callback(const std_msgs::msg::Empty::SharedPtr msg)
 {
   (void)msg;
-  mission_ = false;
   RCLCPP_INFO(get_logger(), "stop mission");
 }
 
@@ -157,18 +141,8 @@ int main(int argc, char **argv)
   auto node = std::make_shared<planner_node::PlannerNode>();
   auto result = rcutils_logging_set_logger_level(node->get_logger().get_name(), RCUTILS_LOG_SEVERITY_DEBUG);
 
-  rclcpp::Rate r(planner_node::SPIN_RATE);
-  while (rclcpp::ok())
-  {
-    // Do our work
-    node->spin_once();
-
-    // Respond to incoming messages
-    rclcpp::spin_some(node);
-
-    // Wait
-    r.sleep();
-  }
+  // Spin until rclcpp::ok() returns false
+  rclcpp::spin(node);
 
   // Shut down ROS
   rclcpp::shutdown();

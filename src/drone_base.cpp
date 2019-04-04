@@ -9,13 +9,11 @@ namespace drone_base {
 //=============================================================================
 
 const int SPIN_RATE = 20;
-const double DT = 1.0 / SPIN_RATE;
 
-const rclcpp::Duration FLIGHT_DATA_TIMEOUT{1500000000};   // Nanoseconds
-const rclcpp::Duration ODOM_TIMEOUT{1500000000};          // Nanoseconds
-const int MIN_BATTERY{20};                                // Percent
-
-const double STABILIZE_TIME = 3;                          // Seconds TODO share w/ plan
+const rclcpp::Duration FLIGHT_DATA_TIMEOUT{1500000000};
+const rclcpp::Duration ODOM_TIMEOUT{1500000000};
+const rclcpp::Duration STABILIZE{5000000000};
+const int MIN_BATTERY{20};  // Percent
 
 //=============================================================================
 // Utilities
@@ -211,7 +209,7 @@ void DroneBase::spin_once()
   if (valid(flight_data_time_) && ros_time - flight_data_time_ > FLIGHT_DATA_TIMEOUT) {
     RCLCPP_ERROR(get_logger(), "flight data timeout, now %g, last %g", ros_time.seconds(), flight_data_time_.seconds());
     transition_state(Event::disconnected);
-    flight_data_time_ = rclcpp::Time();
+    flight_data_time_ = rclcpp::Time();  // Zero time is invalid
     odom_time_ = rclcpp::Time();
   }
 
@@ -225,17 +223,10 @@ void DroneBase::spin_once()
   // Process any actions
   action_mgr_->spin_once();
 
-  // Manual flight TODO move this to joy_callback
-  if (!mission_) {
-    if ((state_ == State::flight || state_ == State::flight_odom) && !action_mgr_->busy()) {
-      cmd_vel_pub_->publish(twist_);
-    }
-  }
-
-  // Automated flight TODO move this to pose_callback
+  // Automated flight
   if (mission_ && have_plan_) {
     // We have a plan
-    if (plan_target_ < plan_.poses.size()) {
+    if (target_ < plan_.poses.size()) {
       // There's more to do
       if (state_ == State::ready_odom) {
         if (!action_mgr_->busy()) {
@@ -243,34 +234,16 @@ void DroneBase::spin_once()
           start_action(Action::takeoff);
         }
       }
-      else if (state_ == State::flight_odom) {
-        if (close_enough(plan_.poses[plan_target_].pose, pose_)) {
-          // Advance to the next target
-          if (++plan_target_ < plan_.poses.size()) {
-            set_pid_controllers();
-          }
-        } else {
-          // Fly to target pose TODO compute point
-          double ubar_x = x_controller_.calc(pose_.position.x, DT, 0); // No feedforward
-          double ubar_y = y_controller_.calc(pose_.position.y, DT, 0);
-          double ubar_z = z_controller_.calc(pose_.position.z, DT, 0);
-          double ubar_yaw = yaw_controller_.calc(get_yaw(pose_), DT, 0);
-          set_velocity(ubar_x, ubar_y, ubar_z, ubar_yaw); // TODO accel vs vel
-          cmd_vel_pub_->publish(twist_);
-        }
-      }
       else if (state_ == State::flight) {
-        RCLCPP_DEBUG(get_logger(), "lost odometry during mission");
-        all_stop();
         // TODO try to recover
+        RCLCPP_ERROR(get_logger(), "lost odometry during mission");
+        stop_mission();
       }
     } else {
       // We're done
       if (state_ == State::flight || state_ == State::flight_odom) {
-        if (!action_mgr_->busy()) {
-          RCLCPP_INFO(get_logger(), "mission complete, landing");
-          start_action(Action::land);
-        }
+        RCLCPP_INFO(get_logger(), "mission complete");
+        stop_mission();
       }
     }
   }
@@ -279,18 +252,26 @@ void DroneBase::spin_once()
 void DroneBase::start_mission_callback(const std_msgs::msg::Empty::SharedPtr msg)
 {
   (void)msg;
+  RCLCPP_INFO(get_logger(), "start mission");
   mission_ = true;
-  have_plan_ = false;  // Start over -- wait for a new plan
-  RCLCPP_INFO(get_logger(), "start mission, waiting for a plan");
 }
 
 void DroneBase::stop_mission_callback(const std_msgs::msg::Empty::SharedPtr msg)
 {
   (void)msg;
-  mission_ = false;
   RCLCPP_INFO(get_logger(), "stop mission");
+  stop_mission();
+}
+
+void DroneBase::stop_mission()
+{
+  mission_ = false;
+  have_plan_ = false;
   all_stop();
-  // TODO land
+  if (state_ == State::flight || state_ == State::flight_odom) {
+    // TODO queue action if busy
+    start_action(Action::land);
+  }
 }
 
 void DroneBase::joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg)
@@ -310,31 +291,34 @@ void DroneBase::joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg)
     start_action(Action::land);
   }
 
-  // Trim (slow, steady) mode vs. joystick mode
-  if (msg->axes[joy_axis_trim_lr_] || msg->axes[joy_axis_trim_fb_]) {
-    const static double TRIM_SPEED{0.2};
-    double throttle{0}, strafe{0}, vertical{0}, yaw{0};
-    if (msg->axes[joy_axis_trim_lr_]) {
-      if (msg->buttons[joy_button_shift_]) {
-        yaw = TRIM_SPEED * msg->axes[joy_axis_trim_lr_];
-      } else {
-        strafe = TRIM_SPEED * msg->axes[joy_axis_trim_lr_];
+  // Manual flight
+  if ((state_ == State::flight || state_ == State::flight_odom) && !action_mgr_->busy()) {
+    // Trim (slow, steady) mode vs. joystick mode
+    if (msg->axes[joy_axis_trim_lr_] || msg->axes[joy_axis_trim_fb_]) {
+      const static double TRIM_SPEED{0.2};
+      double throttle{0}, strafe{0}, vertical{0}, yaw{0};
+      if (msg->axes[joy_axis_trim_lr_]) {
+        if (msg->buttons[joy_button_shift_]) {
+          yaw = TRIM_SPEED * msg->axes[joy_axis_trim_lr_];
+        } else {
+          strafe = TRIM_SPEED * msg->axes[joy_axis_trim_lr_];
+        }
       }
-    }
-    if (msg->axes[joy_axis_trim_fb_]) {
-      if (msg->buttons[joy_button_shift_]) {
-        throttle = TRIM_SPEED * msg->axes[joy_axis_trim_fb_];
-      } else {
-        vertical = TRIM_SPEED * msg->axes[joy_axis_trim_fb_];
+      if (msg->axes[joy_axis_trim_fb_]) {
+        if (msg->buttons[joy_button_shift_]) {
+          throttle = TRIM_SPEED * msg->axes[joy_axis_trim_fb_];
+        } else {
+          vertical = TRIM_SPEED * msg->axes[joy_axis_trim_fb_];
+        }
       }
+      publish_velocity(throttle, strafe, vertical, yaw);
+    } else {
+      publish_velocity(
+        msg->axes[joy_axis_throttle_],
+        msg->axes[joy_axis_strafe_],
+        msg->axes[joy_axis_vertical_],
+        msg->axes[joy_axis_yaw_]);
     }
-    set_velocity(throttle, strafe, vertical, yaw);
-  } else {
-    set_velocity(
-      msg->axes[joy_axis_throttle_],
-      msg->axes[joy_axis_strafe_],
-      msg->axes[joy_axis_vertical_],
-      msg->axes[joy_axis_yaw_]);
   }
 
   prev_msg = *msg;
@@ -355,10 +339,9 @@ void DroneBase::flight_data_callback(const tello_msgs::msg::FlightData::SharedPt
   }
 
   if (msg->bat < MIN_BATTERY && state_ != State::low_battery) {
-    RCLCPP_ERROR(get_logger(), "LOW BATTERY %d", msg->bat);
+    RCLCPP_ERROR(get_logger(), "low battery (%d)", msg->bat);
     transition_state(Event::low_battery);
-    all_stop();
-    // TODO land
+    stop_mission();  // TODO handle non-mission case
   }
 
   flight_data_time_ = msg->header.stamp;
@@ -372,21 +355,62 @@ void DroneBase::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
       transition_state(Event::odometry_started);
     }
 
-    odom_time_ = msg->header.stamp;
+    rclcpp::Time msg_time(msg->header.stamp);
+
+    // Automated flight
+    if (mission_ && have_plan_ && target_ < plan_.poses.size() && !action_mgr_->busy()) {
+      if (msg_time > curr_target_time_ + STABILIZE) {
+        if (close_enough(plan_.poses[target_].pose, pose_)) {  // TODO should use current_target_, which should be a pose
+          // Advance to the next target
+          set_target(target_ + 1);
+        } else {
+          // Timeout
+          RCLCPP_ERROR(get_logger(), "didn't reach target");
+          stop_mission();
+        }
+      } else {
+        // Compute expected position and set PID targets
+        if (msg_time < curr_target_time_) {
+          auto elapsed_time = (odom_time_ - prev_target_time_).nanoseconds();
+          if (elapsed_time > 0) {  // TODO this is sometimes 0, at least as a double -- why?
+            double x = prev_target_.x + vx_ * elapsed_time / 1e9;
+            double y = prev_target_.y + vy_ * elapsed_time / 1e9;
+            double z = prev_target_.z + vz_ * elapsed_time / 1e9;
+            x_controller_.set_target(x);
+            y_controller_.set_target(y);
+            z_controller_.set_target(z);
+          }
+        }
+
+        // Compute velocity
+        auto dt = (rclcpp::Time(msg->header.stamp) - odom_time_).nanoseconds();
+        if (dt > 0) {  // TODO this is sometimes 0 -- why?
+          double ubar_x = x_controller_.calc(pose_.position.x, dt / 1e9, 0); // TODO feedforward
+          double ubar_y = y_controller_.calc(pose_.position.y, dt / 1e9, 0);
+          double ubar_z = z_controller_.calc(pose_.position.z, dt / 1e9, 0);
+          double ubar_yaw = yaw_controller_.calc(get_yaw(pose_), dt / 1e9, 0);
+
+          // Publish velocity
+          publish_velocity(ubar_x, ubar_y, ubar_z, ubar_yaw);
+        }
+      }
+    }
+
+    odom_time_ = msg_time;
     pose_ = msg->pose.pose;
   }
 }
 
 void DroneBase::plan_callback(const nav_msgs::msg::Path::SharedPtr msg)
 {
-  if (mission_ && !have_plan_) {
+  if (mission_) {
     plan_ = *msg;
     have_plan_ = true;
-    RCLCPP_INFO(get_logger(), "got a plan with %d waypoints", plan_.poses.size());
+    RCLCPP_INFO(get_logger(), "got a plan with %d waypoints starting at time %ld",
+      plan_.poses.size(), rclcpp::Time(plan_.header.stamp).nanoseconds());
 
     // Go to first waypoint
-    plan_target_ = 0;
-    set_pid_controllers();
+    set_target(0);
   }
 }
 
@@ -437,17 +461,12 @@ void DroneBase::transition_state(State next_state)
   }
 }
 
-void DroneBase::set_velocity(double throttle, double strafe, double vertical, double yaw)
+void DroneBase::publish_velocity(double throttle, double strafe, double vertical, double yaw)
 {
   twist_.linear.x = clamp(throttle, -1.0, 1.0);
   twist_.linear.y = clamp(strafe, -1.0, 1.0);
   twist_.linear.z = clamp(vertical, -1.0, 1.0);
   twist_.angular.z = clamp(yaw, -1.0, 1.0);
-}
-
-void DroneBase::publish_velocity(double throttle, double strafe, double vertical, double yaw)
-{
-  set_velocity(throttle, strafe, vertical, yaw);
   cmd_vel_pub_->publish(twist_);
 }
 
@@ -457,17 +476,47 @@ void DroneBase::all_stop()
   publish_velocity(0, 0, 0, 0);
 }
 
-void DroneBase::set_pid_controllers()
+void DroneBase::set_target(int target)
 {
-  double yaw = get_yaw(plan_.poses[plan_target_].pose);
+  target_ = target;
 
-  RCLCPP_INFO(get_logger(), "target: %g, %g, %g, %g", plan_.poses[plan_target_].pose.position.x,
-    plan_.poses[plan_target_].pose.position.y, plan_.poses[plan_target_].pose.position.z, yaw);
+  if (target_ < 0 || target_ >= plan_.poses.size()) {
+    return;
+  }
 
-  x_controller_.set_target(plan_.poses[plan_target_].pose.position.x);
-  y_controller_.set_target(plan_.poses[plan_target_].pose.position.y);
-  z_controller_.set_target(plan_.poses[plan_target_].pose.position.z);
-  yaw_controller_.set_target(yaw);
+  double yaw = get_yaw(plan_.poses[target_].pose);
+
+  RCLCPP_INFO(get_logger(), "target %d: x %g, y %g, z %g, yaw %g",
+    target_,
+    plan_.poses[target_].pose.position.x,
+    plan_.poses[target_].pose.position.y,
+    plan_.poses[target_].pose.position.z,
+    yaw);
+
+  curr_target_ = plan_.poses[target_].pose.position;
+  curr_target_time_ = rclcpp::Time(plan_.poses[target_].header.stamp) - STABILIZE;
+
+  if (target_ > 0) {
+    prev_target_ = plan_.poses[target_ - 1].pose.position;
+    prev_target_time_ = rclcpp::Time(plan_.poses[target_ - 1].header.stamp);
+
+    int64_t dt_ns = (curr_target_time_ - prev_target_time_).nanoseconds();
+    assert(dt_ns > 0);
+
+    // Velocity vector from previous target to this target
+    vx_ = (curr_target_.x - prev_target_.x) / dt_ns * 1e9;
+    vy_ = (curr_target_.y - prev_target_.y) / dt_ns * 1e9;
+    vz_ = (curr_target_.z - prev_target_.z) / dt_ns * 1e9;
+    // TODO also handle yaw
+
+    RCLCPP_INFO(get_logger(), "velocity (m/s): x %g, y %g, z %g", vx_, vy_, vz_);
+
+  } else {
+    // Bootstrap case TODO
+    prev_target_ = plan_.poses[target_].pose.position;
+    prev_target_time_ = now();
+    vx_ = vy_ = vz_ = 0;
+  }
 }
 
 } // namespace drone_base
@@ -486,7 +535,7 @@ int main(int argc, char **argv)
 
   // Create node
   auto node = std::make_shared<drone_base::DroneBase>();
-  auto result = rcutils_logging_set_logger_level(node->get_logger().get_name(), RCUTILS_LOG_SEVERITY_INFO);
+  //auto result = rcutils_logging_set_logger_level(node->get_logger().get_name(), RCUTILS_LOG_SEVERITY_INFO);
 
   // TODO rclcpp::Rate uses std::chrono::system_clock, so doesn't honor use_sim_time
   rclcpp::Rate r(drone_base::SPIN_RATE);

@@ -10,14 +10,15 @@ namespace simple_planner {
 
 class SimplePlanner
 {
-  std::vector<nav_msgs::msg::Path> plans_;
+  int num_drones_;
+  std::vector<geometry_msgs::msg::PoseStamped> waypoints_;
 
 public:
 
   explicit SimplePlanner(const std::vector<geometry_msgs::msg::PoseStamped> &landing_poses);
   ~SimplePlanner() {}
 
-  const std::vector<nav_msgs::msg::Path> &plans() const { return plans_; }
+  std::vector<nav_msgs::msg::Path> plans(const rclcpp::Time &now) const;
 };
 
 } // namespace simple_planner
