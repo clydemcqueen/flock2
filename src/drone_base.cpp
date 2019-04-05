@@ -24,27 +24,6 @@ double clamp(const double v, const double min, const double max)
   return v > max ? max : (v < min ? min : v);
 }
 
-double get_yaw(const geometry_msgs::msg::Pose &p)
-{
-  tf2::Quaternion q;
-  tf2::fromMsg(p.orientation, q);
-  tf2::Matrix3x3 m(q);
-  tf2Scalar roll, pitch, yaw;
-  m.getRPY(roll, pitch, yaw);
-  return yaw;
-}
-
-bool close_enough(const geometry_msgs::msg::Pose &p1, const geometry_msgs::msg::Pose &p2)
-{
-  const double EPSILON_XYZ = 0.1;
-  const double EPSILON_YAW = 0.1;
-
-  return std::abs(p1.position.x - p2.position.x) < EPSILON_XYZ &&
-    std::abs(p1.position.y - p2.position.y) < EPSILON_XYZ &&
-    std::abs(p1.position.z - p2.position.z) < EPSILON_XYZ &&
-    std::abs(get_yaw(p1) - get_yaw(p2)) < EPSILON_YAW;
-}
-
 bool button_down(const sensor_msgs::msg::Joy::SharedPtr curr, const sensor_msgs::msg::Joy &prev, int index)
 {
   return curr->buttons[index] && !prev.buttons[index];
@@ -362,7 +341,7 @@ void DroneBase::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
     // Automated flight
     if (mission_ && have_plan_ && target_ < plan_.poses.size() && !action_mgr_->busy()) {
       if (msg_time > curr_target_time_ + STABILIZE) {
-        if (close_enough(curr_target_, pose_)) {
+        if (curr_target_.close_enough(pose_)) {
           // Advance to the next target
           set_target(target_ + 1);
         } else {
@@ -375,25 +354,30 @@ void DroneBase::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
         // The odom pipeline has a lag, so ignore messages that are older than prev_target_time_
         if (msg_time < curr_target_time_ && msg_time > prev_target_time_) {
           auto elapsed_time = (msg_time - prev_target_time_).seconds();
-          x_controller_.set_target(prev_target_.position.x + vx_ * elapsed_time);
-          y_controller_.set_target(prev_target_.position.y + vy_ * elapsed_time);
-          z_controller_.set_target(prev_target_.position.z + vz_ * elapsed_time);
+          x_controller_.set_target(prev_target_.x + vx_ * elapsed_time);
+          y_controller_.set_target(prev_target_.y + vy_ * elapsed_time);
+          z_controller_.set_target(prev_target_.z + vz_ * elapsed_time);
+          yaw_controller_.set_target(norm_angle(prev_target_.yaw + vyaw_ * elapsed_time));
         }
 
         // Compute velocity
         auto dt = (msg_time - odom_time_).seconds();
-        double ubar_x = x_controller_.calc(pose_.position.x, dt, 0); // TODO feedforward
-        double ubar_y = y_controller_.calc(pose_.position.y, dt, 0);
-        double ubar_z = z_controller_.calc(pose_.position.z, dt, 0);
-        double ubar_yaw = yaw_controller_.calc(get_yaw(pose_), dt, 0);
+        double ubar_x = x_controller_.calc(pose_.x, dt, 0);
+        double ubar_y = y_controller_.calc(pose_.y, dt, 0);
+        double ubar_z = z_controller_.calc(pose_.z, dt, 0);
+        double ubar_yaw = yaw_controller_.calc(pose_.yaw, dt, 0);
+
+        // Rotate ubar_x and ubar_y into the body frame
+        double throttle, strafe;
+        rotate_frame(ubar_x, ubar_y, pose_.yaw, throttle, strafe);
 
         // Publish velocity
-        publish_velocity(ubar_x, ubar_y, ubar_z, ubar_yaw);
+        publish_velocity(throttle, strafe, ubar_z, ubar_yaw);
       }
     }
 
     odom_time_ = msg_time;
-    pose_ = msg->pose.pose;
+    pose_.fromMsg(msg->pose.pose);
   }
 }
 
@@ -482,44 +466,44 @@ void DroneBase::set_target(int target)
   }
 
   // Set current target
-  curr_target_ = plan_.poses[target_].pose;
+  curr_target_.fromMsg(plan_.poses[target_].pose);
   curr_target_time_ = rclcpp::Time(plan_.poses[target_].header.stamp) - STABILIZE;
 
   RCLCPP_INFO(get_logger(), "target %d position: (%g, %g, %g), yaw %g",
     target_,
-    curr_target_.position.x,
-    curr_target_.position.y,
-    curr_target_.position.z,
-    get_yaw(curr_target_));
+    curr_target_.x,
+    curr_target_.y,
+    curr_target_.z,
+    curr_target_.yaw);
 
   // Set previous target, as well as velocity
   if (target_ == 0) {
     // Takeoff case
     prev_target_ = curr_target_;
     prev_target_time_ = now();
-    vx_ = vy_ = vz_ = 0;
+    vx_ = vy_ = vz_ = vyaw_ = 0;
   } else {
     // Typical case
-    prev_target_ = plan_.poses[target_ - 1].pose;
+    prev_target_.fromMsg(plan_.poses[target_ - 1].pose);
     prev_target_time_ = rclcpp::Time(plan_.poses[target_ - 1].header.stamp);
 
-    auto flight_time = (curr_target_time_ - prev_target_time_).nanoseconds();
+    auto flight_time = (curr_target_time_ - prev_target_time_).seconds();
     assert(flight_time > 0);
 
     // Velocity vector from previous target to this target
-    vx_ = (curr_target_.position.x - prev_target_.position.x) / flight_time * 1e9;
-    vy_ = (curr_target_.position.y - prev_target_.position.y) / flight_time * 1e9;
-    vz_ = (curr_target_.position.z - prev_target_.position.z) / flight_time * 1e9;
-    // TODO also calc yaw velocity
+    vx_ = (curr_target_.x - prev_target_.x) / flight_time;
+    vy_ = (curr_target_.y - prev_target_.y) / flight_time;
+    vz_ = (curr_target_.z - prev_target_.z) / flight_time;
+    vyaw_ = norm_angle(curr_target_.yaw - prev_target_.yaw) / flight_time;
 
-    RCLCPP_INFO(get_logger(), "target %d velocity (m/s): (%g, %g, %g)", target_, vx_, vy_, vz_);
+    RCLCPP_INFO(get_logger(), "target %d velocity: (%g, %g, %g), yaw %g", target_, vx_, vy_, vz_, vyaw_);
   }
 
   // Initialize PID controllers to previous target, these will be updated in the odom callback
-  x_controller_.set_target(prev_target_.position.x);
-  y_controller_.set_target(prev_target_.position.y);
-  z_controller_.set_target(prev_target_.position.z);
-  yaw_controller_.set_target(get_yaw(prev_target_));
+  x_controller_.set_target(prev_target_.x);
+  y_controller_.set_target(prev_target_.y);
+  z_controller_.set_target(prev_target_.z);
+  yaw_controller_.set_target(prev_target_.yaw);
 }
 
 } // namespace drone_base

@@ -2,6 +2,8 @@
 
 #include <math.h>
 
+#include "tf2_geometry_msgs/tf2_geometry_msgs.h"
+
 namespace simple_planner {
 
 // Plan:
@@ -35,11 +37,19 @@ const rclcpp::Duration STABILIZE{5000000000};
 #define SUPER_SIMPLE
 
 #ifdef SUPER_SIMPLE
-double starting_locations[4][3] = {
-   0, 0, 1,
-   0, 3, 1,
-  -3, 3, 1,
-  -3, 0, 1
+// x, y, z, yaw
+double starting_locations[4][4] = {
+  // Face the wall of markers in fiducial.world
+  -2.5,  1.5,  1.0,  0.0,
+  -1.5,  0.5,  1.0,  0.785,
+  -0.5,  1.5,  1.0,  0.0,
+  -1.5,  2.5,  1.0, -0.785
+
+  // Face all 4 directions in f2.world
+  // -2.5,  1.5,  1.0,  0.0,
+  // -1.5,  0.5,  1.0,  1.57,
+  // -0.5,  1.5,  1.0,  3.14,
+  // -1.5,  3.0,  1.0, -1.57
 };
 #endif
 
@@ -66,6 +76,9 @@ SimplePlanner::SimplePlanner(const std::vector<geometry_msgs::msg::PoseStamped> 
     p.pose.position.x = starting_locations[i][0];
     p.pose.position.y = starting_locations[i][1];
     p.pose.position.z = starting_locations[i][2];
+    tf2::Quaternion q;
+    q.setRPY(0, 0, starting_locations[i][3]);
+    p.pose.orientation = tf2::toMsg(q);
     waypoints_.push_back(p);
   }
 #else

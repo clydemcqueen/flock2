@@ -14,10 +14,17 @@ def generate_launch_description():
 
     # Starting locations:
     starting_locations = [
-        ['0', '0', '1'],
-        ['0', '3', '1'],
-        ['-3', '3', '1'],
-        ['-3', '0', '1']
+        # Face the wall of markers in fiducial.world
+        ['-2.5', '1.5', '1', '0'],
+        ['-1.5', '0.5', '1', '0.785'],
+        ['-0.5', '1.5', '1', '0'],
+        ['-1.5', '2.5', '1', '-0.785']
+
+        # Face all 4 directions in f2.world
+        # ['-2.5', '1.5', '1', '0'],
+        # ['-1.5', '0.5', '1', '1.57'],
+        # ['-0.5', '1.5', '1', '3.14'],
+        # ['-1.5', '2.5', '1', '-1.57']
     ]
 
     tello_gazebo_path = get_package_share_directory('tello_gazebo')
