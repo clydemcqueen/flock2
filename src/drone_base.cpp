@@ -161,13 +161,14 @@ DroneBase::DroneBase() : Node{"drone_base"}
 
   cmd_vel_pub_ = create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 1);
 
-  auto joy_cb = std::bind(&DroneBase::joy_callback, this, std::placeholders::_1);
-  auto start_mission_cb = std::bind(&DroneBase::start_mission_callback, this, std::placeholders::_1);
-  auto stop_mission_cb = std::bind(&DroneBase::stop_mission_callback, this, std::placeholders::_1);
-  auto tello_response_cb = std::bind(&DroneBase::tello_response_callback, this, std::placeholders::_1);
-  auto flight_data_cb = std::bind(&DroneBase::flight_data_callback, this, std::placeholders::_1);
-  auto odom_cb = std::bind(&DroneBase::odom_callback, this, std::placeholders::_1);
-  auto plan_cb = std::bind(&DroneBase::plan_callback, this, std::placeholders::_1);
+  using std::placeholders::_1;
+  auto joy_cb = std::bind(&DroneBase::joy_callback, this, _1);
+  auto start_mission_cb = std::bind(&DroneBase::start_mission_callback, this, _1);
+  auto stop_mission_cb = std::bind(&DroneBase::stop_mission_callback, this, _1);
+  auto tello_response_cb = std::bind(&DroneBase::tello_response_callback, this, _1);
+  auto flight_data_cb = std::bind(&DroneBase::flight_data_callback, this, _1);
+  auto odom_cb = std::bind(&DroneBase::odom_callback, this, _1);
+  auto plan_cb = std::bind(&DroneBase::plan_callback, this, _1);
 
   start_mission_sub_ = create_subscription<std_msgs::msg::Empty>("/start_mission", start_mission_cb);
   stop_mission_sub_ = create_subscription<std_msgs::msg::Empty>("/stop_mission", stop_mission_cb);

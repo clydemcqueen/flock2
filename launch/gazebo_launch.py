@@ -89,30 +89,31 @@ def generate_launch_description():
                  arguments=[urdf_path]+starting_locations[idx]),
 
             # Publish base_link to camera_link tf
-            Node(package='robot_state_publisher', node_executable='robot_state_publisher', output='screen',
-                 node_name=namespace+'_tf_pub', arguments=[urdf_path], parameters=[{
-                    'use_sim_time': True,                       # Use /clock if available
-                }]),
+            # Node(package='robot_state_publisher', node_executable='robot_state_publisher', output='screen',
+            #      node_name=namespace+'_tf_pub', arguments=[urdf_path], parameters=[{
+            #         'use_sim_time': True,                       # Use /clock if available
+            #     }]),
 
             # Localize this drone against the map
             # Future: need odometry for base_link, not camera_link
             Node(package='fiducial_vlam', node_executable='vloc_node', output='screen',
                  node_name='vloc_node', node_namespace=namespace, parameters=[{
                     'use_sim_time': True,                       # Use /clock if available
-                    'publish_tfs': 0,                           # Don't publish drone /tf
+                    'publish_tfs': 1,                           # Publish drone and camera /tf
                     'stamp_msgs_with_current_time': 0,          # Use incoming message time, not now()
                     'base_frame_id': 'base_link' + suffix,
                     'map_init_pose_z': -0.035,
-                    'camera_frame_id': 'camera_link' + suffix
+                    'camera_frame_id': 'camera_link' + suffix,
+                    'base_odometry_pub_topic': 'filtered_odom',
                 }]),
 
             # Odometry filter takes camera pose, generates base_link odom, and publishes map to base_link tf
-            Node(package='odom_filter', node_executable='filter_node', output='screen',
-                 node_name='filter_node', node_namespace=namespace, parameters=[{
-                    'use_sim_time': True,                       # Use /clock if available
-                    'map_frame': 'map',
-                    'base_frame': 'base_link' + suffix
-                }]),
+            # Node(package='odom_filter', node_executable='filter_node', output='screen',
+            #      node_name='filter_node', node_namespace=namespace, parameters=[{
+            #         'use_sim_time': True,                       # Use /clock if available
+            #         'map_frame': 'map',
+            #         'base_frame': 'base_link' + suffix
+            #     }]),
 
             # Drone controller
             Node(package='flock2', node_executable='drone_base', output='screen',

@@ -84,7 +84,7 @@ class DroneBase : public rclcpp::Node
   rclcpp::Time curr_target_time_;         // Deadline to hit the current target
   double vx_, vy_, vz_, vyaw_;            // Velocity required to hit the current target
 
-  // PID controllers
+  // PID controllers TODO parameters
   pid::Controller x_controller_{false, 0.1, 0, 0};
   pid::Controller y_controller_{false, 0.1, 0, 0};
   pid::Controller z_controller_{false, 0.1, 0, 0};

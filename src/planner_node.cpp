@@ -34,6 +34,7 @@ DroneInfo::DroneInfo(rclcpp::Node *node, std::string ns) : ns_{ns}, valid_landin
 {
   auto odom_cb = std::bind(&DroneInfo::odom_callback, this, std::placeholders::_1);
 
+  // TODO move topics to cxt
   odom_sub_ = node->create_subscription<nav_msgs::msg::Odometry>(ns + "/filtered_odom", odom_cb);
   plan_pub_ = node->create_publisher<nav_msgs::msg::Path>(ns + "/plan", 1);
 }
