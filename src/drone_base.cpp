@@ -156,10 +156,12 @@ DroneBase::DroneBase() : Node{"drone_base"}
   (void)odom_sub_;
   (void)plan_sub_;
 
-  action_mgr_ = std::make_unique<ActionMgr>(get_logger(),
-    create_client<tello_msgs::srv::TelloAction>("tello_action"));
+  std::string ns = "/drone1/";
 
-  cmd_vel_pub_ = create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 1);
+  action_mgr_ = std::make_unique<ActionMgr>(get_logger(),
+    create_client<tello_msgs::srv::TelloAction>(ns + "tello_action"));
+
+  cmd_vel_pub_ = create_publisher<geometry_msgs::msg::Twist>(ns + "cmd_vel", 1);
 
   using std::placeholders::_1;
   auto joy_cb = std::bind(&DroneBase::joy_callback, this, _1);
@@ -172,11 +174,11 @@ DroneBase::DroneBase() : Node{"drone_base"}
 
   start_mission_sub_ = create_subscription<std_msgs::msg::Empty>("/start_mission", start_mission_cb);
   stop_mission_sub_ = create_subscription<std_msgs::msg::Empty>("/stop_mission", stop_mission_cb);
-  joy_sub_ = create_subscription<sensor_msgs::msg::Joy>("joy", joy_cb);
-  tello_response_sub_ = create_subscription<tello_msgs::msg::TelloResponse>("tello_response", tello_response_cb);
-  flight_data_sub_ = create_subscription<tello_msgs::msg::FlightData>("flight_data", flight_data_cb);
-  odom_sub_ = create_subscription<nav_msgs::msg::Odometry>("filtered_odom", odom_cb);
-  plan_sub_ = create_subscription<nav_msgs::msg::Path>("plan", plan_cb);
+  joy_sub_ = create_subscription<sensor_msgs::msg::Joy>(ns + "joy", joy_cb);
+  tello_response_sub_ = create_subscription<tello_msgs::msg::TelloResponse>(ns + "tello_response", tello_response_cb);
+  flight_data_sub_ = create_subscription<tello_msgs::msg::FlightData>(ns + "flight_data", flight_data_cb);
+  odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(ns + "filtered_odom", odom_cb);
+  plan_sub_ = create_subscription<nav_msgs::msg::Path>(ns + "plan", plan_cb);
 
   RCLCPP_INFO(get_logger(), "drone initialized");
 }
@@ -187,7 +189,7 @@ void DroneBase::spin_once()
 
   // Check for flight data timeout
   if (valid(flight_data_time_) && ros_time - flight_data_time_ > FLIGHT_DATA_TIMEOUT) {
-    RCLCPP_ERROR(get_logger(), "flight data timeout, now %g, last %g", ros_time.seconds(), flight_data_time_.seconds());
+    RCLCPP_ERROR(get_logger(), "flight data timeout, now %ld, last %ld", ros_time.nanoseconds(), flight_data_time_.nanoseconds());
     transition_state(Event::disconnected);
     flight_data_time_ = rclcpp::Time();  // Zero time is invalid
     odom_time_ = rclcpp::Time();
@@ -195,7 +197,7 @@ void DroneBase::spin_once()
 
   // Check for odometry timeout
   if (valid(odom_time_) && ros_time - odom_time_ > ODOM_TIMEOUT) {
-    RCLCPP_ERROR(get_logger(), "odom timeout, now %g, last %g", ros_time.seconds(), odom_time_.seconds());
+    RCLCPP_ERROR(get_logger(), "odom timeout, now %ld, last %ld", ros_time.nanoseconds(), odom_time_.nanoseconds());
     transition_state(Event::odometry_stopped);
     odom_time_ = rclcpp::Time();
   }
@@ -347,19 +349,20 @@ void DroneBase::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
           set_target(target_ + 1);
         } else {
           // Timeout
-          RCLCPP_ERROR(get_logger(), "didn't reach target");
+          RCLCPP_ERROR(get_logger(), "didn't reach target. msg_time %ld, target_time %ld",
+            msg_time.nanoseconds(), (curr_target_time_ + STABILIZE).nanoseconds());
           stop_mission();
         }
       } else {
         // Compute expected position and set PID targets
         // The odom pipeline has a lag, so ignore messages that are older than prev_target_time_
-        if (msg_time < curr_target_time_ && msg_time > prev_target_time_) {
-          auto elapsed_time = (msg_time - prev_target_time_).seconds();
-          x_controller_.set_target(prev_target_.x + vx_ * elapsed_time);
-          y_controller_.set_target(prev_target_.y + vy_ * elapsed_time);
-          z_controller_.set_target(prev_target_.z + vz_ * elapsed_time);
-          yaw_controller_.set_target(norm_angle(prev_target_.yaw + vyaw_ * elapsed_time));
-        }
+//        if (msg_time < curr_target_time_ && msg_time > prev_target_time_) {
+//          auto elapsed_time = (msg_time - prev_target_time_).seconds();
+//          x_controller_.set_target(prev_target_.x + vx_ * elapsed_time);
+//          y_controller_.set_target(prev_target_.y + vy_ * elapsed_time);
+//          z_controller_.set_target(prev_target_.z + vz_ * elapsed_time);
+//          yaw_controller_.set_target(norm_angle(prev_target_.yaw + vyaw_ * elapsed_time));
+//        }
 
         // Compute velocity
         auto dt = (msg_time - odom_time_).seconds();
@@ -371,6 +374,12 @@ void DroneBase::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
         // Rotate ubar_x and ubar_y into the body frame
         double throttle, strafe;
         rotate_frame(ubar_x, ubar_y, pose_.yaw, throttle, strafe);
+
+        RCLCPP_INFO(get_logger(),
+          "x controller: target %7.3f, curr %7.3f, throttle %7.3f"
+          "y controller: target %7.3f, curr %7.3f, strafe %7.3f",
+          x_controller_.target(), pose_.x, throttle,
+          y_controller_.target(), pose_.y, strafe);
 
         // Publish velocity
         publish_velocity(throttle, strafe, ubar_z, ubar_yaw);
@@ -470,12 +479,13 @@ void DroneBase::set_target(int target)
   curr_target_.fromMsg(plan_.poses[target_].pose);
   curr_target_time_ = rclcpp::Time(plan_.poses[target_].header.stamp) - STABILIZE;
 
-  RCLCPP_INFO(get_logger(), "target %d position: (%g, %g, %g), yaw %g",
+  RCLCPP_INFO(get_logger(), "target %d position: (%g, %g, %g), yaw %g, time %ld",
     target_,
     curr_target_.x,
     curr_target_.y,
     curr_target_.z,
-    curr_target_.yaw);
+    curr_target_.yaw,
+    curr_target_time_.nanoseconds());
 
   // Set previous target, as well as velocity
   if (target_ == 0) {
@@ -501,10 +511,14 @@ void DroneBase::set_target(int target)
   }
 
   // Initialize PID controllers to previous target, these will be updated in the odom callback
-  x_controller_.set_target(prev_target_.x);
-  y_controller_.set_target(prev_target_.y);
-  z_controller_.set_target(prev_target_.z);
-  yaw_controller_.set_target(prev_target_.yaw);
+//  x_controller_.set_target(prev_target_.x);
+//  y_controller_.set_target(prev_target_.y);
+//  z_controller_.set_target(prev_target_.z);
+//  yaw_controller_.set_target(prev_target_.yaw);
+  x_controller_.set_target(curr_target_.x);
+  y_controller_.set_target(curr_target_.y);
+  z_controller_.set_target(curr_target_.z);
+  yaw_controller_.set_target(curr_target_.yaw);
 }
 
 } // namespace drone_base

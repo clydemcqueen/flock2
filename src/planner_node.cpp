@@ -56,7 +56,7 @@ void DroneInfo::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 PlannerNode::PlannerNode() : Node{"planner_node"}
 {
   // Get drone namespaces
-  std::vector<std::string> namespaces{"solo"};
+  std::vector<std::string> namespaces{"drone1"};
   if (get_parameter("drones", namespaces)) {
     RCLCPP_INFO(get_logger(), "%d drones", namespaces.size());
   } else {
@@ -64,9 +64,9 @@ PlannerNode::PlannerNode() : Node{"planner_node"}
   }
 
   // Get arena
-  get_parameter_or("arena_x", arena_.x, 2.0);
-  get_parameter_or("arena_y", arena_.y, 2.0);
-  get_parameter_or("arena_z", arena_.z, 2.0);
+  get_parameter_or("arena_x", arena_.x, -5.0);
+  get_parameter_or("arena_y", arena_.y, -5.0);
+  get_parameter_or("arena_z", arena_.z, 10.0);
   RCLCPP_INFO(get_logger(), "arena is (0, 0, 0) to (%g, %g, %g)", arena_.x, arena_.y, arena_.z);
 
   auto start_mission_cb = std::bind(&PlannerNode::start_mission_callback, this, std::placeholders::_1);

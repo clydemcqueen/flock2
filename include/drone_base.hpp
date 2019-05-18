@@ -85,9 +85,9 @@ class DroneBase : public rclcpp::Node
   double vx_, vy_, vz_, vyaw_;            // Velocity required to hit the current target
 
   // PID controllers TODO parameters
-  pid::Controller x_controller_{false, 0.1, 0, 0};
-  pid::Controller y_controller_{false, 0.1, 0, 0};
-  pid::Controller z_controller_{false, 0.1, 0, 0};
+  pid::Controller x_controller_{false, 1.0, 0, 0.5};
+  pid::Controller y_controller_{false, 1.0, 0, 0.5};
+  pid::Controller z_controller_{false, 1.0, 0, 0};
   pid::Controller yaw_controller_{true, 0.2, 0, 0};
 
   // Joystick assignments

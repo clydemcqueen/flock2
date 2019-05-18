@@ -29,7 +29,7 @@ namespace simple_planner {
 
 const double CRUISING_Z = 1.0;      // m
 const double SEPARATION = 4.0;      // m
-const double SPEED = 1.0;           // m/s
+const double SPEED = 0.5;           // m/s
 
 const rclcpp::Duration TAKEOFF{5000000000};
 const rclcpp::Duration STABILIZE{5000000000};
@@ -40,12 +40,17 @@ const rclcpp::Duration STABILIZE{5000000000};
 // x, y, z, yaw
 double starting_locations[4][4] = {
   // Face the wall of markers in fiducial.world
-  -2.5,  1.5,  1.0,  0.0,
-  -1.5,  0.5,  1.0,  0.785,
-  -0.5,  1.5,  1.0,  0.0,
-  -1.5,  2.5,  1.0, -0.785
+//    -2.5,  1.5,  1.0,  0.0,
+//    -1.5,  0.5,  1.0,  0.785,
+//    -0.5,  1.5,  1.0,  0.0,
+//    -1.5,  2.5,  1.0, -0.785
 
-  // Face all 4 directions in f2.world
+    -1.0,  1.0,  1.0,  0.0,
+    -1.0,  0.5,  1.0,  0.0,
+    -1.0,  0.0,  1.0,  0.0,
+    -1.0,  -0.5,  1.0, -0.0
+
+    // Face all 4 directions in f2.world
   // -2.5,  1.5,  1.0,  0.0,
   // -1.5,  0.5,  1.0,  1.57,
   // -0.5,  1.5,  1.0,  3.14,
@@ -106,7 +111,7 @@ SimplePlanner::SimplePlanner(const std::vector<geometry_msgs::msg::PoseStamped> 
 std::vector<nav_msgs::msg::Path> SimplePlanner::plans(const rclcpp::Time &now) const
 {
   std::vector<nav_msgs::msg::Path> plans;
-  
+
   // Compute time to fly from this waypoint to next waypoint
   // Assume instant acceleration and constant speed
   std::vector<rclcpp::Duration> flight_time;
@@ -139,7 +144,7 @@ std::vector<nav_msgs::msg::Path> SimplePlanner::plans(const rclcpp::Time &now) c
     plans[i].poses.push_back(waypoints_[i]);
     plans[i].poses[waypoints_.size()].header.stamp = timestamp;
   }
-  
+
   return plans;
 }
 
