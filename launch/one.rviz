@@ -138,7 +138,7 @@ Visualization Manager:
       Radius: 0.029999999329447746
       Shaft Diameter: 0.10000000149011612
       Shaft Length: 0.10000000149011612
-      Topic: /solo/global_plan
+      Topic: /solo/plan
       Unreliable: false
       Value: true
     - Angle Tolerance: 0.10000000149011612

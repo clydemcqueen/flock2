@@ -43,6 +43,6 @@ def generate_launch_description():
         Node(package='odom_filter', node_executable='filter_node', output='screen',
              node_name='filter_node', node_namespace='solo'),
 
-        # WIP: global planner
-        Node(package='flock2', node_executable='global_planner', output='screen'),
+        # WIP: planner
+        Node(package='flock2', node_executable='planner_node', output='screen'),
     ])

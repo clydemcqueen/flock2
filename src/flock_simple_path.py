@@ -387,11 +387,11 @@ class FlockSimplePath(Node):
         for waypoint in waypoints:
             pose = PoseStamped()
             pose.header.frame_id = self._base_frame
-            pose.header.stamp = now()     # TODO publish planned time
+            pose.header.stamp = now()
             pose.pose.position.x = waypoint[1]
             pose.pose.position.y = waypoint[2]
             pose.pose.position.z = waypoint[3]
-            pose.pose.orientation.w = 1.  # TODO publish planned orientation
+            pose.pose.orientation.w = 1.
             path.poses.append(pose)
         self._path_pub.publish(path)
 

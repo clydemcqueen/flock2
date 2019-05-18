@@ -10,6 +10,7 @@
 #include "tello_msgs/msg/flight_data.hpp"
 
 #include "joystick.hpp"
+#include "drone_pose.hpp"
 #include "action_mgr.hpp"
 #include "pid.hpp"
 
@@ -51,18 +52,20 @@ enum class Action
 // DroneBase node
 //=============================================================================
 
+// rclcpp::Time t() initializes nanoseconds to 0
+bool valid(rclcpp::Time &t) { return t.nanoseconds() > 0; }
+
 class DroneBase : public rclcpp::Node
 {
   // Drone state
   State state_ = State::unknown;
 
   // Flight data
-  bool receiving_flight_data_ = false;
-  tello_msgs::msg::FlightData flight_data_;
+  rclcpp::Time flight_data_time_;
 
   // Odom data
-  bool receiving_odom_ = false;
-  nav_msgs::msg::Odometry odom_;
+  rclcpp::Time odom_time_;
+  DronePose pose_;
 
   // Drone action manager
   std::unique_ptr<ActionMgr> action_mgr_;
@@ -71,16 +74,21 @@ class DroneBase : public rclcpp::Node
   geometry_msgs::msg::Twist twist_;
 
   // Mission state
-  bool mission_ = false;
-  bool have_plan_ = false;
-  nav_msgs::msg::Path plan_;
-  int plan_target_;
+  bool mission_ = false;                  // We're in a mission (flying autonomously)
+  bool have_plan_ = false;                // We have a flight plan
+  nav_msgs::msg::Path plan_;              // The flight plan
+  int target_;                            // Current target (index into plan_)
+  DronePose prev_target_;                 // Previous target pose
+  DronePose curr_target_;                 // Current target pose
+  rclcpp::Time prev_target_time_;         // Time we left the previous target
+  rclcpp::Time curr_target_time_;         // Deadline to hit the current target
+  double vx_, vy_, vz_, vyaw_;            // Velocity required to hit the current target
 
-  // PID controllers
-  pid::Controller x_controller_{false, 0.3, 0, 0};
-  pid::Controller y_controller_{false, 0.3, 0, 0};
-  pid::Controller z_controller_{false, 0.3, 0, 0};
-  pid::Controller yaw_controller_{true, 0.3, 0, 0};
+  // PID controllers TODO parameters
+  pid::Controller x_controller_{false, 0.1, 0, 0};
+  pid::Controller y_controller_{false, 0.1, 0, 0};
+  pid::Controller z_controller_{false, 0.1, 0, 0};
+  pid::Controller yaw_controller_{true, 0.2, 0, 0};
 
   // Joystick assignments
   int joy_axis_throttle_ = JOY_AXIS_RIGHT_FB;
@@ -129,9 +137,17 @@ private:
   void transition_state(Event event);
   void transition_state(State next_state);
 
-  // Motion
-  void set_velocity(double throttle, double strafe, double vertical, double yaw);
-  void set_pid_controllers();
+  // Set twist_ and publish
+  void publish_velocity(double throttle, double strafe, double vertical, double yaw);
+
+  // All stop: set twist_ to 0, 0, 0, 0 and publish
+  void all_stop();
+
+  // Set target
+  void set_target(int target);
+
+  // Stop mission
+  void stop_mission();
 };
 
 } // namespace drone_base
