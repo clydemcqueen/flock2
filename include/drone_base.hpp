@@ -9,9 +9,10 @@
 #include "std_msgs/msg/empty.hpp"
 #include "tello_msgs/msg/flight_data.hpp"
 
-#include "joystick.hpp"
-#include "drone_pose.hpp"
 #include "action_mgr.hpp"
+#include "context_macros.hpp"
+#include "drone_pose.hpp"
+#include "joystick.hpp"
 #include "pid.hpp"
 
 namespace drone_base {
@@ -49,6 +50,44 @@ enum class Action
 };
 
 //=============================================================================
+// DroneBase Context
+//=============================================================================
+
+#define CXT_MACRO_ALL_PARAMS \
+  CXT_MACRO_MEMBER(               /* Error if no additional flight_data message within this duration */ \
+  flight_data_timeout_sec, \
+  double, 1.5) \
+  CXT_MACRO_MEMBER(               /* Error if no additional odom message within this duration */ \
+  odom_timeout_sec, \
+  double, 1.5) \
+  CXT_MACRO_MEMBER(               /* Allow drone to stabilize for this duration */ \
+  stabilize_time_sec, \
+  double, 5.) \
+  /* End of list */
+
+#define CXT_MACRO_ALL_OTHERS \
+  CXT_MACRO_MEMBER(             /* Error if no additional flight_data message within this duration */ \
+  flight_data_timeout,  \
+  rclcpp::Duration, 0) \
+  CXT_MACRO_MEMBER(             /* Error if no additional odom message within this duration */ \
+  odom_timeout,  \
+  rclcpp::Duration, 0) \
+  CXT_MACRO_MEMBER(             /* Allow drone to stabilize for this duration */ \
+  stabilize_time,  \
+  rclcpp::Duration, 0) \
+  /* End of list */
+
+
+#undef CXT_MACRO_MEMBER
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_MEMBER_DEF(n, t, d)
+
+struct DroneBaseContext
+{
+  CXT_MACRO_ALL_PARAMS
+  CXT_MACRO_ALL_OTHERS
+};
+
+//=============================================================================
 // DroneBase node
 //=============================================================================
 
@@ -57,6 +96,9 @@ bool valid(rclcpp::Time &t) { return t.nanoseconds() > 0; }
 
 class DroneBase : public rclcpp::Node
 {
+  // DroneBase context containing parameters
+  DroneBaseContext cxt_;
+
   // Drone state
   State state_ = State::unknown;
 
@@ -121,6 +163,7 @@ public:
   void spin_once();
 
 private:
+  void validate_parameters();
 
   // Callbacks
   void joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg);

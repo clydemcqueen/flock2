@@ -10,9 +10,9 @@ namespace drone_base {
 
 const int SPIN_RATE = 20;
 
-const rclcpp::Duration FLIGHT_DATA_TIMEOUT{1500000000};
-const rclcpp::Duration ODOM_TIMEOUT{1500000000};
-const rclcpp::Duration STABILIZE{5000000000};
+//const rclcpp::Duration FLIGHT_DATA_TIMEOUT{1500000000};
+//const rclcpp::Duration ODOM_TIMEOUT{1500000000};
+//const rclcpp::Duration STABILIZE{5000000000};
 const int MIN_BATTERY{20};  // Percent
 
 //=============================================================================
@@ -156,6 +156,16 @@ DroneBase::DroneBase() : Node{"drone_base"}
   (void)odom_sub_;
   (void)plan_sub_;
 
+#undef CXT_MACRO_MEMBER
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_LOAD_PARAM((*this), cxt_, n, t, d)
+
+  CXT_MACRO_INIT_PARAMETERS(validate_parameters);
+
+#undef CXT_MACRO_MEMBER
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_CHANGE_PARAM(cxt_, n, t)
+
+  CXT_MACRO_CHANGE_PARAMETERS((*this), cxt_, validate_parameters);
+
   action_mgr_ = std::make_unique<ActionMgr>(get_logger(),
     create_client<tello_msgs::srv::TelloAction>("tello_action"));
 
@@ -186,7 +196,7 @@ void DroneBase::spin_once()
   rclcpp::Time ros_time = now();
 
   // Check for flight data timeout
-  if (valid(flight_data_time_) && ros_time - flight_data_time_ > FLIGHT_DATA_TIMEOUT) {
+  if (valid(flight_data_time_) && ros_time - flight_data_time_ > cxt_.flight_data_timeout_) {
     RCLCPP_ERROR(get_logger(), "flight data timeout, now %g, last %g", ros_time.seconds(), flight_data_time_.seconds());
     transition_state(Event::disconnected);
     flight_data_time_ = rclcpp::Time();  // Zero time is invalid
@@ -194,7 +204,7 @@ void DroneBase::spin_once()
   }
 
   // Check for odometry timeout
-  if (valid(odom_time_) && ros_time - odom_time_ > ODOM_TIMEOUT) {
+  if (valid(odom_time_) && ros_time - odom_time_ > cxt_.odom_timeout_) {
     RCLCPP_ERROR(get_logger(), "odom timeout, now %g, last %g", ros_time.seconds(), odom_time_.seconds());
     transition_state(Event::odometry_stopped);
     odom_time_ = rclcpp::Time();
@@ -227,6 +237,13 @@ void DroneBase::spin_once()
       }
     }
   }
+}
+
+void DroneBase::validate_parameters()
+{
+  cxt_.flight_data_timeout_ = rclcpp::Duration(static_cast<int64_t>(RCL_S_TO_NS(cxt_.flight_data_timeout_sec_)));
+  cxt_.odom_timeout_ = rclcpp::Duration(static_cast<int64_t>(RCL_S_TO_NS(cxt_.odom_timeout_sec_)));
+  cxt_.stabilize_time_ = rclcpp::Duration(static_cast<int64_t>(RCL_S_TO_NS(cxt_.stabilize_time_sec_)));
 }
 
 void DroneBase::start_mission_callback(const std_msgs::msg::Empty::SharedPtr msg)
@@ -341,7 +358,7 @@ void DroneBase::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 
     // Automated flight
     if (mission_ && have_plan_ && target_ < plan_.poses.size() && !action_mgr_->busy()) {
-      if (msg_time > curr_target_time_ + STABILIZE) {
+      if (msg_time > curr_target_time_ + cxt_.stabilize_time_) {
         if (curr_target_.close_enough(pose_)) {
           // Advance to the next target
           set_target(target_ + 1);
@@ -468,7 +485,7 @@ void DroneBase::set_target(int target)
 
   // Set current target
   curr_target_.fromMsg(plan_.poses[target_].pose);
-  curr_target_time_ = rclcpp::Time(plan_.poses[target_].header.stamp) - STABILIZE;
+  curr_target_time_ = rclcpp::Time(plan_.poses[target_].header.stamp) - cxt_.stabilize_time_;
 
   RCLCPP_INFO(get_logger(), "target %d position: (%g, %g, %g), yaw %g",
     target_,
