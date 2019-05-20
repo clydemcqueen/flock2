@@ -9,9 +9,10 @@
 #include "std_msgs/msg/empty.hpp"
 #include "tello_msgs/msg/flight_data.hpp"
 
-#include "joystick.hpp"
-#include "drone_pose.hpp"
 #include "action_mgr.hpp"
+#include "context_macros.hpp"
+#include "drone_pose.hpp"
+#include "joystick.hpp"
 #include "pid.hpp"
 
 namespace drone_base {
@@ -49,34 +50,68 @@ enum class Action
 };
 
 //=============================================================================
-// DroneBase node
+// DroneBase Context
 //=============================================================================
 
-// rclcpp::Time t() initializes nanoseconds to 0
-bool valid(rclcpp::Time &t) { return t.nanoseconds() > 0; }
+#define DRONE_BASE_ALL_PARAMS \
+  CXT_MACRO_MEMBER(               /* Error if no additional flight_data message within this duration */ \
+  flight_data_timeout_sec, \
+  double, 1.5) \
+  CXT_MACRO_MEMBER(               /* Error if no additional odom message within this duration */ \
+  odom_timeout_sec, \
+  double, 1.5) \
+  /* End of list */
 
-class DroneBase : public rclcpp::Node
+#define DRONE_BASE_ALL_OTHERS \
+  CXT_MACRO_MEMBER(             /* Error if no additional flight_data message within this duration */ \
+  flight_data_timeout,  \
+  rclcpp::Duration, 0) \
+  CXT_MACRO_MEMBER(             /* Error if no additional odom message within this duration */ \
+  odom_timeout,  \
+  rclcpp::Duration, 0) \
+  /* End of list */
+
+
+#undef CXT_MACRO_MEMBER
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_DEFINE_MEMBER(n, t, d)
+
+struct DroneBaseContext
 {
-  // Drone state
-  State state_ = State::unknown;
+  DRONE_BASE_ALL_PARAMS
+  DRONE_BASE_ALL_OTHERS
+};
 
-  // Flight data
-  rclcpp::Time flight_data_time_;
+//=============================================================================
+// FlightController
+//=============================================================================
 
-  // Odom data
-  rclcpp::Time odom_time_;
-  DronePose pose_;
+#define FLIGHT_CONTROLLER_ALL_PARAMS \
+  CXT_MACRO_MEMBER(               /* Allow drone to stabilize for this duration */ \
+  stabilize_time_sec, \
+  double, 5.) \
+  /* End of list */
 
-  // Drone action manager
-  std::unique_ptr<ActionMgr> action_mgr_;
+#define FLIGHT_CONTROLLER_ALL_OTHERS \
+  CXT_MACRO_MEMBER(             /* Allow drone to stabilize for this duration */ \
+  stabilize_time,  \
+  rclcpp::Duration, 0) \
+  /* End of list */
 
-  // Target velocity
-  geometry_msgs::msg::Twist twist_;
+class FlightController {
+  rclcpp::Node &node_;
 
-  // Mission state
-  bool mission_ = false;                  // We're in a mission (flying autonomously)
-  bool have_plan_ = false;                // We have a flight plan
+#undef CXT_MACRO_MEMBER
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_DEFINE_MEMBER(n, t, d)
+
+  FLIGHT_CONTROLLER_ALL_PARAMS
+  FLIGHT_CONTROLLER_ALL_OTHERS
+
+
+  DronePose last_pose_;                   // Last pose from odom
+  rclcpp::Time last_odom_time_;           // Last pose from odom
+
   nav_msgs::msg::Path plan_;              // The flight plan
+
   int target_;                            // Current target (index into plan_)
   DronePose prev_target_;                 // Previous target pose
   DronePose curr_target_;                 // Current target pose
@@ -89,6 +124,61 @@ class DroneBase : public rclcpp::Node
   pid::Controller y_controller_{false, 0.1, 0, 0};
   pid::Controller z_controller_{false, 0.1, 0, 0};
   pid::Controller yaw_controller_{true, 0.2, 0, 0};
+
+  // Target velocity
+  geometry_msgs::msg::Twist twist_;
+
+  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr &cmd_vel_pub_;
+
+  void validate_parameters();
+
+  public:
+  FlightController(rclcpp::Node &node, rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr &cmd_vel_pub);
+
+  void parameters_changed(std::vector<rclcpp::Parameter> parameters);
+
+  void reset();
+  void set_target(int target);
+  void set_plan(const nav_msgs::msg::Path::SharedPtr msg);
+  bool odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
+  void publish_velocity(double throttle, double strafe, double vertical, double yaw);
+
+  bool is_plan_complete() {
+    return target_ >= plan_.poses.size();
+  }
+
+  bool have_plan() {
+    return plan_.poses.size() > 0;
+  }
+};
+
+//=============================================================================
+// DroneBase node
+//=============================================================================
+
+// rclcpp::Time t() initializes nanoseconds to 0
+bool valid(rclcpp::Time &t) { return t.nanoseconds() > 0; }
+
+class DroneBase : public rclcpp::Node
+{
+  // DroneBase context containing parameters
+  DroneBaseContext cxt_;
+
+  // Drone state
+  State state_ = State::unknown;
+
+  // Flight data
+  rclcpp::Time flight_data_time_;
+
+  // Odom data
+  rclcpp::Time odom_time_;
+
+  // Drone action manager
+  std::unique_ptr<ActionMgr> action_mgr_;
+
+  // Mission state
+  bool mission_ = false;                  // We're in a mission (flying autonomously)
+  FlightController fc_;
 
   // Joystick assignments
   int joy_axis_throttle_ = JOY_AXIS_RIGHT_FB;
@@ -121,6 +211,8 @@ public:
   void spin_once();
 
 private:
+  void validate_parameters();
+  void parameters_changed(std::vector<rclcpp::Parameter> parameters);
 
   // Callbacks
   void joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg);
@@ -137,14 +229,8 @@ private:
   void transition_state(Event event);
   void transition_state(State next_state);
 
-  // Set twist_ and publish
-  void publish_velocity(double throttle, double strafe, double vertical, double yaw);
-
   // All stop: set twist_ to 0, 0, 0, 0 and publish
   void all_stop();
-
-  // Set target
-  void set_target(int target);
 
   // Stop mission
   void stop_mission();
