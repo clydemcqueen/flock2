@@ -12,6 +12,7 @@
 #include "action_mgr.hpp"
 #include "context_macros.hpp"
 #include "drone_pose.hpp"
+#include "flight_controller_interface.hpp"
 #include "joystick.hpp"
 #include "pid.hpp"
 
@@ -82,7 +83,7 @@ struct DroneBaseContext
 };
 
 //=============================================================================
-// FlightController
+// FlightControllerBasic
 //=============================================================================
 
 #define FLIGHT_CONTROLLER_ALL_PARAMS \
@@ -97,8 +98,7 @@ struct DroneBaseContext
   rclcpp::Duration, 0) \
   /* End of list */
 
-class FlightController {
-  rclcpp::Node &node_;
+class FlightControllerBasic : public FlightControllerInterface {
 
 #undef CXT_MACRO_MEMBER
 #define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_DEFINE_MEMBER(n, t, d)
@@ -106,50 +106,30 @@ class FlightController {
   FLIGHT_CONTROLLER_ALL_PARAMS
   FLIGHT_CONTROLLER_ALL_OTHERS
 
-
   DronePose last_pose_;                   // Last pose from odom
   rclcpp::Time last_odom_time_;           // Last pose from odom
 
-  nav_msgs::msg::Path plan_;              // The flight plan
-
-  int target_;                            // Current target (index into plan_)
   DronePose prev_target_;                 // Previous target pose
   DronePose curr_target_;                 // Current target pose
   rclcpp::Time prev_target_time_;         // Time we left the previous target
   rclcpp::Time curr_target_time_;         // Deadline to hit the current target
-  double vx_, vy_, vz_, vyaw_;            // Velocity required to hit the current target
+  double vx_{}, vy_{}, vz_{}, vyaw_{};    // Velocity required to hit the current target
 
-  // PID controllers TODO parameters
+  // PID controllers
   pid::Controller x_controller_{false, 0.1, 0, 0};
   pid::Controller y_controller_{false, 0.1, 0, 0};
   pid::Controller z_controller_{false, 0.1, 0, 0};
   pid::Controller yaw_controller_{true, 0.2, 0, 0};
 
-  // Target velocity
-  geometry_msgs::msg::Twist twist_;
-
-  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr &cmd_vel_pub_;
-
   void validate_parameters();
 
   public:
-  FlightController(rclcpp::Node &node, rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr &cmd_vel_pub);
+  FlightControllerBasic(rclcpp::Node &node, rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr &cmd_vel_pub);
 
-  void parameters_changed(std::vector<rclcpp::Parameter> parameters);
-
-  void reset();
-  void set_target(int target);
-  void set_plan(const nav_msgs::msg::Path::SharedPtr msg);
-  bool odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
-  void publish_velocity(double throttle, double strafe, double vertical, double yaw);
-
-  bool is_plan_complete() {
-    return target_ >= plan_.poses.size();
-  }
-
-  bool have_plan() {
-    return plan_.poses.size() > 0;
-  }
+  void _reset() override;
+  void _set_target(int target) override;
+  bool _odom_callback(const nav_msgs::msg::Odometry::SharedPtr &msg) override;
+  void _parameters_changed(const std::vector<rclcpp::Parameter> &parameters) override;
 };
 
 //=============================================================================
@@ -178,7 +158,7 @@ class DroneBase : public rclcpp::Node
 
   // Mission state
   bool mission_ = false;                  // We're in a mission (flying autonomously)
-  FlightController fc_;
+  std::unique_ptr<FlightControllerInterface> fc_{};
 
   // Joystick assignments
   int joy_axis_throttle_ = JOY_AXIS_RIGHT_FB;
@@ -206,22 +186,21 @@ class DroneBase : public rclcpp::Node
 public:
 
   explicit DroneBase();
-  ~DroneBase() {}
 
   void spin_once();
 
 private:
   void validate_parameters();
-  void parameters_changed(std::vector<rclcpp::Parameter> parameters);
+  void parameters_changed(const std::vector<rclcpp::Parameter> &parameters);
 
   // Callbacks
-  void joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg);
-  void start_mission_callback(const std_msgs::msg::Empty::SharedPtr msg);
-  void stop_mission_callback(const std_msgs::msg::Empty::SharedPtr msg);
-  void tello_response_callback(const tello_msgs::msg::TelloResponse::SharedPtr msg);
-  void flight_data_callback(const tello_msgs::msg::FlightData::SharedPtr msg);
-  void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
-  void plan_callback(const nav_msgs::msg::Path::SharedPtr msg);
+  void joy_callback(sensor_msgs::msg::Joy::SharedPtr msg);
+  void start_mission_callback(std_msgs::msg::Empty::SharedPtr msg);
+  void stop_mission_callback(std_msgs::msg::Empty::SharedPtr msg);
+  void tello_response_callback(tello_msgs::msg::TelloResponse::SharedPtr msg);
+  void flight_data_callback(tello_msgs::msg::FlightData::SharedPtr msg);
+  void odom_callback(nav_msgs::msg::Odometry::SharedPtr msg);
+  void plan_callback(nav_msgs::msg::Path::SharedPtr msg);
 
   // State transition
   void start_action(Action action);

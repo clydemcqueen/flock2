@@ -19,7 +19,7 @@ validate_func() \
 
 // Body of parameter_changed function
 #define CXT_MACRO_PARAMETERS_CHANGED_BODY(all_params, parameters_list, validate_func) \
-  for (auto parameter : parameters) { \
+  for (const auto &parameter : parameters) { \
     all_params \
   } \
   validate_func();
