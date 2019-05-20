@@ -102,6 +102,7 @@ class FlightController {
 
 #undef CXT_MACRO_MEMBER
 #define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_DEFINE_MEMBER(n, t, d)
+
   FLIGHT_CONTROLLER_ALL_PARAMS
   FLIGHT_CONTROLLER_ALL_OTHERS
 
@@ -230,9 +231,6 @@ private:
 
   // All stop: set twist_ to 0, 0, 0, 0 and publish
   void all_stop();
-
-  // Set target
-  void set_target(int target);
 
   // Stop mission
   void stop_mission();
