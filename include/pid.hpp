@@ -45,6 +45,11 @@ public:
     integral_ = 0;
   }
 
+  auto target()
+  {
+    return target_;
+  }
+
   // Run one calculation
   double calc(double state, double dt, double bias)
   {
