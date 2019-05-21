@@ -19,13 +19,13 @@ validate_func() \
 
 // Body of parameter_changed function
 #define CXT_MACRO_PARAMETERS_CHANGED_BODY(all_params, parameters_list, validate_func) \
-  for (auto parameter : parameters) { \
+  for (const auto &parameter : parameters) { \
     all_params \
   } \
   validate_func();
 
 // Regester for parameter changed notifications
-#define CXT_MACRO_REGISTER_PARAMETERS_CHANGED(all_params, node_ref, parameter_changed_func) \
+#define CXT_MACRO_REGISTER_PARAMETERS_CHANGED(node_ref, parameter_changed_func) \
 node_ref.register_param_change_callback( \
 [this](std::vector<rclcpp::Parameter> parameters) -> rcl_interfaces::msg::SetParametersResult \
 { \

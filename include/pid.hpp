@@ -45,7 +45,14 @@ public:
     integral_ = 0;
   }
 
-  auto target()
+  void set_coefficients(double Kp, double Ki, double Kd)
+  {
+    Kp_ = Kp;
+    Ki_ = Ki;
+    Kd_ = Kd;
+  }
+
+  auto target() const
   {
     return target_;
   }
