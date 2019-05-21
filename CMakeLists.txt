@@ -88,6 +88,7 @@ add_executable(
   drone_base
   src/drone_base.cpp
   src/action_mgr.cpp
+  src/flight_controller_basic.cpp
   src/flight_controller_simple.cpp
 )
 

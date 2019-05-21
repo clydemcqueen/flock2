@@ -1,6 +1,10 @@
 #ifndef FLIGHT_CONTROLLER_INTERFACE_HPP
 #define FLIGHT_CONTROLLER_INTERFACE_HPP
 
+#include "geometry_msgs/msg/twist.hpp"
+#include "nav_msgs/msg/odometry.hpp"
+#include "nav_msgs/msg/path.hpp"
+
 #include "drone_pose.hpp"
 
 namespace drone_base
