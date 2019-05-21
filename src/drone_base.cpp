@@ -179,13 +179,13 @@ void FlightControllerBasic::_set_target(int target)
   curr_target_.fromMsg(plan_.poses[target_].pose);
   curr_target_time_ = rclcpp::Time(plan_.poses[target_].header.stamp) - stabilize_time_;
 
-  RCLCPP_INFO(node_.get_logger(), "target %d position: (%g, %g, %g), yaw %g, time %ld",
+  RCLCPP_INFO(node_.get_logger(), "target %d position: (%g, %g, %g), yaw %g, time %12ld",
               target_,
               curr_target_.x,
               curr_target_.y,
               curr_target_.z,
               curr_target_.yaw,
-              curr_target_time_.nanoseconds());
+              RCL_NS_TO_MS(curr_target_time_.nanoseconds()));
 
   // Set previous target, as well as velocity
   if (target_ == 0) {
@@ -205,7 +205,7 @@ void FlightControllerBasic::_set_target(int target)
     vx_ = (curr_target_.x - prev_target_.x) / flight_time;
     vy_ = (curr_target_.y - prev_target_.y) / flight_time;
     vz_ = (curr_target_.z - prev_target_.z) / flight_time;
-    vyaw_ = norm_angle(curr_target_.yaw - prev_target_.yaw) / flight_time;
+    vyaw_ = PoseUtil::norm_angle(curr_target_.yaw - prev_target_.yaw) / flight_time;
 
     RCLCPP_INFO(node_.get_logger(), "target %d velocity: (%g, %g, %g), yaw %g", target_, vx_, vy_, vz_, vyaw_);
   }
@@ -223,7 +223,7 @@ bool FlightControllerBasic::_odom_callback(const nav_msgs::msg::Odometry::Shared
 
   rclcpp::Time msg_time(msg->header.stamp);
 
-  if (valid(last_odom_time_)) {
+  if (PoseUtil::is_valid_time(last_odom_time_)) {
     if (msg_time > curr_target_time_ + stabilize_time_) {
       if (curr_target_.close_enough(last_pose_)) {
         // Advance to the next target
@@ -240,7 +240,7 @@ bool FlightControllerBasic::_odom_callback(const nav_msgs::msg::Odometry::Shared
         x_controller_.set_target(prev_target_.x + vx_ * elapsed_time);
         y_controller_.set_target(prev_target_.y + vy_ * elapsed_time);
         z_controller_.set_target(prev_target_.z + vz_ * elapsed_time);
-        yaw_controller_.set_target(norm_angle(prev_target_.yaw + vyaw_ * elapsed_time));
+        yaw_controller_.set_target(PoseUtil::norm_angle(prev_target_.yaw + vyaw_ * elapsed_time));
       }
 
       // Compute velocity
@@ -252,10 +252,10 @@ bool FlightControllerBasic::_odom_callback(const nav_msgs::msg::Odometry::Shared
 
       // Rotate ubar_x and ubar_y into the body frame
       double throttle, strafe;
-      rotate_frame(ubar_x, ubar_y, last_pose_.yaw, throttle, strafe);
+      PoseUtil::rotate_frame(ubar_x, ubar_y, last_pose_.yaw, throttle, strafe);
 
 //      RCLCPP_INFO(node_.get_logger(), "%12ld "
-//                  "x controller: target %7.3f, curr %7.3f, throttle %7.3f"
+//                  "x controller: target %7.3f, curr %7.3f, throttle %7.3f "
 //                  "y controller: target %7.3f, curr %7.3f, strafe %7.3f",
 //                  RCL_NS_TO_MS(msg_time.nanoseconds()),
 //                  x_controller_.target(), last_pose_.x, throttle,
@@ -292,12 +292,10 @@ DroneBase::DroneBase() : Node{"drone_base"}
 
   CXT_MACRO_INIT_PARAMETERS(DRONE_BASE_ALL_PARAMS, validate_parameters);
 
-#undef CXT_MACRO_MEMBER
-#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_PARAMETER_CHANGED(cxt_, n, t)
+  CXT_MACRO_REGISTER_PARAMETERS_CHANGED((*this), parameters_changed);
 
-  CXT_MACRO_REGISTER_PARAMETERS_CHANGED(DRONE_BASE_ALL_PARAMS, (*this), parameters_changed);
-
-  fc_ = std::make_unique<FlightControllerBasic>(*this, cmd_vel_pub_);
+//  fc_ = std::make_unique<FlightControllerBasic>(*this, cmd_vel_pub_);
+  fc_ = std::make_unique<FlightControllerSimple>(*this, cmd_vel_pub_);
 
   action_mgr_ = std::make_unique<ActionMgr>(get_logger(),
     create_client<tello_msgs::srv::TelloAction>("tello_action"));
@@ -329,7 +327,7 @@ void DroneBase::spin_once()
   rclcpp::Time ros_time = now();
 
   // Check for flight data timeout
-  if (valid(flight_data_time_) && ros_time - flight_data_time_ > cxt_.flight_data_timeout_) {
+  if (PoseUtil::is_valid_time(flight_data_time_) && ros_time - flight_data_time_ > cxt_.flight_data_timeout_) {
     RCLCPP_ERROR(get_logger(), "flight data timeout, now %ld, last %ld", ros_time.nanoseconds(), flight_data_time_.nanoseconds());
     transition_state(Event::disconnected);
     flight_data_time_ = rclcpp::Time();  // Zero time is invalid
@@ -337,7 +335,7 @@ void DroneBase::spin_once()
   }
 
   // Check for odometry timeout
-  if (valid(odom_time_) && ros_time - odom_time_ > cxt_.odom_timeout_) {
+  if (PoseUtil::is_valid_time(odom_time_) && ros_time - odom_time_ > cxt_.odom_timeout_) {
     RCLCPP_ERROR(get_logger(), "odom timeout, now %ld, last %ld", ros_time.nanoseconds(), odom_time_.nanoseconds());
     transition_state(Event::odometry_stopped);
     odom_time_ = rclcpp::Time();
@@ -474,7 +472,7 @@ void DroneBase::tello_response_callback(tello_msgs::msg::TelloResponse::SharedPt
 
 void DroneBase::flight_data_callback(tello_msgs::msg::FlightData::SharedPtr msg)
 {
-  if (!valid(flight_data_time_)) {
+  if (!PoseUtil::is_valid_time(flight_data_time_)) {
     transition_state(Event::connected);
   }
 
@@ -492,8 +490,8 @@ void DroneBase::flight_data_callback(tello_msgs::msg::FlightData::SharedPtr msg)
 void DroneBase::odom_callback(nav_msgs::msg::Odometry::SharedPtr msg)
 {
   // It's possible (but unlikely) to get an odom message before flight data
-  if (valid(flight_data_time_)) {
-    if (!valid(odom_time_)) {
+  if (PoseUtil::is_valid_time(flight_data_time_)) {
+    if (!PoseUtil::is_valid_time(odom_time_)) {
       transition_state(Event::odometry_started);
     }
 

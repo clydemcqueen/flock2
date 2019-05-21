@@ -1,16 +1,12 @@
 #ifndef FLIGHT_CONTROLLER_INTERFACE_HPP
 #define FLIGHT_CONTROLLER_INTERFACE_HPP
 
+#include "drone_pose.hpp"
+
 namespace drone_base
 {
   class FlightControllerInterface
   {
-
-    static double clamp(const double v, const double min, const double max)
-    {
-      return v > max ? max : (v < min ? min : v);
-    }
-
   protected:
     int target_{};                            // Current target (index into plan_)
     nav_msgs::msg::Path plan_{};              // The flight plan
@@ -68,10 +64,10 @@ namespace drone_base
     void publish_velocity(double throttle, double strafe, double vertical, double yaw)
     {
       geometry_msgs::msg::Twist twist;
-      twist.linear.x = clamp(throttle, -1.0, 1.0);
-      twist.linear.y = clamp(strafe, -1.0, 1.0);
-      twist.linear.z = clamp(vertical, -1.0, 1.0);
-      twist.angular.z = clamp(yaw, -1.0, 1.0);
+      twist.linear.x = PoseUtil::clamp(throttle, -1.0, 1.0);
+      twist.linear.y = PoseUtil::clamp(strafe, -1.0, 1.0);
+      twist.linear.z = PoseUtil::clamp(vertical, -1.0, 1.0);
+      twist.angular.z = PoseUtil::clamp(yaw, -1.0, 1.0);
       cmd_vel_pub_->publish(twist);
     }
 

@@ -12,27 +12,39 @@ namespace drone_base {
 // Utilities
 //=============================================================================
 
-// Move an angle to the region [-M_PI, M_PI]
-double norm_angle(double a)
+struct PoseUtil
 {
-  while (a < -M_PI)
+  // Move an angle to the region [-M_PI, M_PI]
+  static double norm_angle(double a)
   {
-    a += 2 * M_PI;
-  }
-  while (a > M_PI)
-  {
-    a -= 2 * M_PI;
+    while (a < -M_PI) {
+      a += 2 * M_PI;
+    }
+    while (a > M_PI) {
+      a -= 2 * M_PI;
+    }
+
+    return a;
   }
 
-  return a;
-}
+  // Compute a 2d point in a rotated frame (v' = R_transpose * v)
+  static void rotate_frame(const double x, const double y, const double theta, double &x_r, double &y_r)
+  {
+    x_r = x * cos(theta) + y * sin(theta);
+    y_r = y * cos(theta) - x * sin(theta);
+  }
 
-// Compute a 2d point in a rotated frame (v' = R_transpose * v)
-void rotate_frame(const double x, const double y, const double theta, double &x_r, double &y_r)
-{
-  x_r = x * cos(theta) + y * sin(theta);
-  y_r = y * cos(theta) - x * sin(theta);
-}
+  static double clamp(const double v, const double min, const double max)
+  {
+    return v > max ? max : (v < min ? min : v);
+  }
+
+  // rclcpp::Time t() initializes nanoseconds to 0
+  static bool is_valid_time(rclcpp::Time &t)
+  {
+    return t.nanoseconds() > 0;
+  }
+};
 
 //=====================================================================================
 // 4 DoF drone pose, in the world frame

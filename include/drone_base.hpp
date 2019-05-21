@@ -11,8 +11,8 @@
 
 #include "action_mgr.hpp"
 #include "context_macros.hpp"
-#include "drone_pose.hpp"
 #include "flight_controller_interface.hpp"
+#include "flight_controller_simple.hpp"
 #include "joystick.hpp"
 #include "pid.hpp"
 
@@ -135,9 +135,6 @@ class FlightControllerBasic : public FlightControllerInterface {
 //=============================================================================
 // DroneBase node
 //=============================================================================
-
-// rclcpp::Time t() initializes nanoseconds to 0
-bool valid(rclcpp::Time &t) { return t.nanoseconds() > 0; }
 
 class DroneBase : public rclcpp::Node
 {
