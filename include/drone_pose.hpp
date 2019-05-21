@@ -85,11 +85,8 @@ struct DronePose
   }
 
   // Within some epsilon
-  bool close_enough(const DronePose &that) const
+  bool close_enough(const DronePose &that, double EPSILON_XYZ = 0.15, double EPSILON_YAW = 0.15) const
   {
-    const double EPSILON_XYZ = 0.15;
-    const double EPSILON_YAW = 0.15;
-
     return
       std::abs(x - that.x) < EPSILON_XYZ &&
       std::abs(y - that.y) < EPSILON_XYZ &&
