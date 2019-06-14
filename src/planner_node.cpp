@@ -14,7 +14,7 @@ const int SPIN_RATE = 20;
 // Arena constraints
 const double MIN_ARENA_Z = 1.5;
 const double MIN_ARENA_XY = 2.0;
-const double GROUND_EPSILON = 0.2;
+const double GROUND_EPSILON = 1.2;
 
 //====================
 // Utilities

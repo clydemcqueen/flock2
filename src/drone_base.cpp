@@ -192,7 +192,8 @@ void DroneBase::spin_once()
 
   // Check for flight data timeout
   if (PoseUtil::is_valid_time(flight_data_time_) && ros_time - flight_data_time_ > cxt_.flight_data_timeout_) {
-    RCLCPP_ERROR(get_logger(), "flight data timeout, now %ld, last %ld", ros_time.nanoseconds(), flight_data_time_.nanoseconds());
+    RCLCPP_ERROR(get_logger(), "flight data timeout, now %ld, last %ld",
+                 RCL_NS_TO_MS(ros_time.nanoseconds()), RCL_NS_TO_MS(flight_data_time_.nanoseconds()));
     transition_state(Event::disconnected);
     flight_data_time_ = rclcpp::Time();  // Zero time is invalid
     odom_time_ = rclcpp::Time();
@@ -200,7 +201,8 @@ void DroneBase::spin_once()
 
   // Check for odometry timeout
   if (PoseUtil::is_valid_time(odom_time_) && ros_time - odom_time_ > cxt_.odom_timeout_) {
-    RCLCPP_ERROR(get_logger(), "odom timeout, now %ld, last %ld", ros_time.nanoseconds(), odom_time_.nanoseconds());
+    RCLCPP_ERROR(get_logger(), "odom timeout, now %ld, last %ld",
+                 RCL_NS_TO_MS(ros_time.nanoseconds()), RCL_NS_TO_MS(odom_time_.nanoseconds()));
     transition_state(Event::odometry_stopped);
     odom_time_ = rclcpp::Time();
   }
@@ -376,9 +378,10 @@ void DroneBase::odom_callback(nav_msgs::msg::Odometry::SharedPtr msg)
 void DroneBase::plan_callback(nav_msgs::msg::Path::SharedPtr msg)
 {
   if (mission_) {
+    RCLCPP_INFO(get_logger(), "Got plan with %d waypoints, plan msg time %ld, last odom time %ld, ros time %ld ",
+                msg->poses.size(), RCL_NS_TO_MS(rclcpp::Time(msg->header.stamp).nanoseconds()),
+                RCL_NS_TO_MS(odom_time_.nanoseconds()), RCL_NS_TO_MS(now().nanoseconds()));
     fc_->set_plan(msg);
-    RCLCPP_INFO(get_logger(), "got a plan with %d waypoints starting at time %ld",
-      msg->poses.size(), rclcpp::Time(msg->header.stamp).nanoseconds());
   }
 }
 

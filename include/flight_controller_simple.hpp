@@ -19,19 +19,19 @@ namespace drone_base
   double, 5.) \
   CXT_MACRO_MEMBER(               /* PID coefficients */ \
   pid_x_kp, \
-  double, 0.1) \
+  double, 1.0) \
   CXT_MACRO_MEMBER(               /* PID coefficients */ \
   pid_x_kd, \
-  double, 0.0) \
+  double, 0.15) \
   CXT_MACRO_MEMBER(               /* PID coefficients */ \
   pid_x_ki, \
   double, 0.0) \
   CXT_MACRO_MEMBER(               /* PID coefficients */ \
   pid_y_kp, \
-  double, 0.1) \
+  double, 1.0) \
   CXT_MACRO_MEMBER(               /* PID coefficients */ \
   pid_y_kd, \
-  double, 0.0) \
+  double, 0.15) \
   CXT_MACRO_MEMBER(               /* PID coefficients */ \
   pid_y_ki, \
   double, 0.0) \
