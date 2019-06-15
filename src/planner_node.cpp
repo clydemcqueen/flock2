@@ -35,7 +35,7 @@ DroneInfo::DroneInfo(rclcpp::Node *node, std::string ns) : ns_{ns}, valid_landin
   auto odom_cb = std::bind(&DroneInfo::odom_callback, this, std::placeholders::_1);
 
   // TODO move topics to cxt
-  odom_sub_ = node->create_subscription<nav_msgs::msg::Odometry>(ns + "/filtered_odom", odom_cb);
+  odom_sub_ = node->create_subscription<nav_msgs::msg::Odometry>(ns + "/filtered_odom", 10, odom_cb);
   plan_pub_ = node->create_publisher<nav_msgs::msg::Path>(ns + "/plan", 1);
 }
 
@@ -72,8 +72,8 @@ PlannerNode::PlannerNode() : Node{"planner_node"}
   auto start_mission_cb = std::bind(&PlannerNode::start_mission_callback, this, std::placeholders::_1);
   auto stop_mission_cb = std::bind(&PlannerNode::stop_mission_callback, this, std::placeholders::_1);
 
-  start_mission_sub_ = create_subscription<std_msgs::msg::Empty>("/start_mission", start_mission_cb);
-  stop_mission_sub_ = create_subscription<std_msgs::msg::Empty>("/stop_mission", stop_mission_cb);
+  start_mission_sub_ = create_subscription<std_msgs::msg::Empty>("/start_mission", 10, start_mission_cb);
+  stop_mission_sub_ = create_subscription<std_msgs::msg::Empty>("/stop_mission", 10, stop_mission_cb);
 
   for (auto i = namespaces.begin(); i != namespaces.end(); i++) {
     drones_.push_back(std::make_shared<DroneInfo>(this, *i));

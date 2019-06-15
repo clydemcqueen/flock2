@@ -15,7 +15,7 @@ FlockBase::FlockBase() : Node{"flock_base"}
   }
 
   auto joy_cb = std::bind(&FlockBase::joy_callback, this, std::placeholders::_1);
-  joy_sub_ = create_subscription<sensor_msgs::msg::Joy>("joy", joy_cb);
+  joy_sub_ = create_subscription<sensor_msgs::msg::Joy>("joy", 10, joy_cb);
 
   start_mission_pub_ = create_publisher<std_msgs::msg::Empty>("/start_mission", 1);
   stop_mission_pub_ = create_publisher<std_msgs::msg::Empty>("/stop_mission", 1);
@@ -63,7 +63,7 @@ void FlockBase::joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg)
   }
 
   // Send joy message to the drone
-  joy_pubs_[manual_control_]->publish(msg);
+  joy_pubs_[manual_control_]->publish(*msg);
 
   prev_msg = *msg;
 }

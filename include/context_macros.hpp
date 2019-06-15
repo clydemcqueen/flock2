@@ -26,7 +26,7 @@ validate_func() \
 
 // Regester for parameter changed notifications
 #define CXT_MACRO_REGISTER_PARAMETERS_CHANGED(node_ref, parameter_changed_func) \
-node_ref.register_param_change_callback( \
+node_ref.set_on_parameters_set_callback( \
 [this](std::vector<rclcpp::Parameter> parameters) -> rcl_interfaces::msg::SetParametersResult \
 { \
   parameter_changed_func(parameters); \

@@ -175,13 +175,13 @@ DroneBase::DroneBase() : Node{"drone_base"}
   auto odom_cb = std::bind(&DroneBase::odom_callback, this, _1);
   auto plan_cb = std::bind(&DroneBase::plan_callback, this, _1);
 
-  start_mission_sub_ = create_subscription<std_msgs::msg::Empty>("/start_mission", start_mission_cb);
-  stop_mission_sub_ = create_subscription<std_msgs::msg::Empty>("/stop_mission", stop_mission_cb);
-  joy_sub_ = create_subscription<sensor_msgs::msg::Joy>("joy", joy_cb);
-  tello_response_sub_ = create_subscription<tello_msgs::msg::TelloResponse>("tello_response", tello_response_cb);
-  flight_data_sub_ = create_subscription<tello_msgs::msg::FlightData>("flight_data", flight_data_cb);
-  odom_sub_ = create_subscription<nav_msgs::msg::Odometry>("filtered_odom", odom_cb);
-  plan_sub_ = create_subscription<nav_msgs::msg::Path>("plan", plan_cb);
+  start_mission_sub_ = create_subscription<std_msgs::msg::Empty>("/start_mission", 10, start_mission_cb);
+  stop_mission_sub_ = create_subscription<std_msgs::msg::Empty>("/stop_mission", 10, stop_mission_cb);
+  joy_sub_ = create_subscription<sensor_msgs::msg::Joy>("joy", 10, joy_cb);
+  tello_response_sub_ = create_subscription<tello_msgs::msg::TelloResponse>("tello_response", 10, tello_response_cb);
+  flight_data_sub_ = create_subscription<tello_msgs::msg::FlightData>("flight_data", 10, flight_data_cb);
+  odom_sub_ = create_subscription<nav_msgs::msg::Odometry>("filtered_odom", 10, odom_cb);
+  plan_sub_ = create_subscription<nav_msgs::msg::Path>("plan", 10, plan_cb);
 
   RCLCPP_INFO(get_logger(), "drone initialized");
 }
