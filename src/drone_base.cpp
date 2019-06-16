@@ -153,7 +153,7 @@ DroneBase::DroneBase() : Node{"drone_base"}
 
 #undef CXT_MACRO_MEMBER
 #define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_LOAD_PARAMETER((*this), cxt_, n, t, d)
-  CXT_MACRO_INIT_PARAMETERS(DRONE_BASE_ALL_PARAMS, validate_parameters);
+  CXT_MACRO_INIT_PARAMETERS(DRONE_BASE_ALL_PARAMS, validate_parameters)
 
 #undef CXT_MACRO_MEMBER
 #define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_PARAMETER_CHANGED(cxt_, n, t)
@@ -239,6 +239,12 @@ void DroneBase::validate_parameters()
 {
   cxt_.flight_data_timeout_ = rclcpp::Duration(static_cast<int64_t>(RCL_S_TO_NS(cxt_.flight_data_timeout_sec_)));
   cxt_.odom_timeout_ = rclcpp::Duration(static_cast<int64_t>(RCL_S_TO_NS(cxt_.odom_timeout_sec_)));
+
+  RCLCPP_INFO(get_logger(), "DroneBase Parameters");
+
+#undef CXT_MACRO_MEMBER
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_LOG_PARAMETER(RCLCPP_INFO, get_logger(), cxt_, n, t, d)
+  DRONE_BASE_ALL_PARAMS
 }
 
 void DroneBase::start_mission_callback(std_msgs::msg::Empty::SharedPtr msg)

@@ -9,7 +9,7 @@ namespace drone_base
   {
 #undef CXT_MACRO_MEMBER
 #define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_LOAD_PARAMETER(node_, (*this), n, t, d)
-    CXT_MACRO_INIT_PARAMETERS(SIMPLE_CONTROLLER_ALL_PARAMS, validate_parameters);
+    CXT_MACRO_INIT_PARAMETERS(SIMPLE_CONTROLLER_ALL_PARAMS, validate_parameters)
 
 #undef CXT_MACRO_MEMBER
 #define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_PARAMETER_CHANGED((*this), n, t)
@@ -25,6 +25,12 @@ namespace drone_base
     y_controller_.set_coefficients(pid_y_kp_, pid_y_ki_, pid_y_kd_);
     z_controller_.set_coefficients(pid_z_kp_, pid_z_ki_, pid_z_kd_);
     yaw_controller_.set_coefficients(pid_yaw_kp_, pid_yaw_ki_, pid_yaw_kd_);
+
+    RCLCPP_INFO(node_.get_logger(), "FlightControllerSimple Parameters");
+
+#undef CXT_MACRO_MEMBER
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_LOG_PARAMETER(RCLCPP_INFO, node_.get_logger(), (*this), n, t, d)
+    SIMPLE_CONTROLLER_ALL_PARAMS
   }
 
   void FlightControllerSimple::_reset()

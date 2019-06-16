@@ -6,7 +6,7 @@ FlockBase::FlockBase() : Node{"flock_base"}
 {
 #undef CXT_MACRO_MEMBER
 #define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_LOAD_PARAMETER((*this), (*this), n, t, d)
-  CXT_MACRO_INIT_PARAMETERS(FLOCK_BASE_ALL_PARAMS, validate_parameters);
+  CXT_MACRO_INIT_PARAMETERS(FLOCK_BASE_ALL_PARAMS, validate_parameters)
 
 #undef CXT_MACRO_MEMBER
 #define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_PARAMETER_CHANGED((*this), n, t)

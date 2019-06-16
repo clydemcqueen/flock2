@@ -57,7 +57,7 @@ PlannerNode::PlannerNode() : Node{"planner_node"}
 {
 #undef CXT_MACRO_MEMBER
 #define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_LOAD_PARAMETER((*this), (*this), n, t, d)
-  CXT_MACRO_INIT_PARAMETERS(PLANNER_NODE_ALL_PARAMS, validate_parameters);
+  CXT_MACRO_INIT_PARAMETERS(PLANNER_NODE_ALL_PARAMS, validate_parameters)
 
 #undef CXT_MACRO_MEMBER
 #define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_PARAMETER_CHANGED((*this), n, t)

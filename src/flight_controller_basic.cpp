@@ -14,7 +14,7 @@ namespace drone_base
   {
 #undef CXT_MACRO_MEMBER
 #define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_LOAD_PARAMETER(node_, (*this), n, t, d)
-    CXT_MACRO_INIT_PARAMETERS(BASIC_CONTROLLER_ALL_PARAMS, validate_parameters);
+    CXT_MACRO_INIT_PARAMETERS(BASIC_CONTROLLER_ALL_PARAMS, validate_parameters)
 
 #undef CXT_MACRO_MEMBER
 #define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_PARAMETER_CHANGED((*this), n, t)
@@ -26,6 +26,12 @@ namespace drone_base
   void FlightControllerBasic::validate_parameters()
   {
     stabilize_time_ = rclcpp::Duration(static_cast<int64_t>(RCL_S_TO_NS(stabilize_time_sec_)));
+
+    RCLCPP_INFO(node_.get_logger(), "FlightControllerSimple Parameters");
+
+#undef CXT_MACRO_MEMBER
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_LOG_PARAMETER(RCLCPP_INFO, node_.get_logger(), (*this), n, t, d)
+    BASIC_CONTROLLER_ALL_PARAMS
   }
 
   void FlightControllerBasic::_reset()
