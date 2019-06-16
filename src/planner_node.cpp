@@ -55,19 +55,23 @@ void DroneInfo::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 
 PlannerNode::PlannerNode() : Node{"planner_node"}
 {
+#undef CXT_MACRO_MEMBER
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_LOAD_PARAMETER((*this), (*this), n, t, d)
+  CXT_MACRO_INIT_PARAMETERS(PLANNER_NODE_ALL_PARAMS, validate_parameters);
+
+#undef CXT_MACRO_MEMBER
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_PARAMETER_CHANGED((*this), n, t)
+  CXT_MACRO_REGISTER_PARAMETERS_CHANGED((*this), PLANNER_NODE_ALL_PARAMS, validate_parameters)
+
   // Get drone namespaces
-  std::vector<std::string> namespaces{"solo"};
-  if (get_parameter("drones", namespaces)) {
-    RCLCPP_INFO(get_logger(), "%d drones", namespaces.size());
+  if (namespaces_.size() > 1) {
+    RCLCPP_INFO(get_logger(), "%d drones", namespaces_.size());
   } else {
     RCLCPP_INFO(get_logger(), "1 drone");
   }
 
   // Get arena
-  get_parameter_or("arena_x", arena_.x, 2.0);
-  get_parameter_or("arena_y", arena_.y, 2.0);
-  get_parameter_or("arena_z", arena_.z, 2.0);
-  RCLCPP_INFO(get_logger(), "arena is (0, 0, 0) to (%g, %g, %g)", arena_.x, arena_.y, arena_.z);
+  RCLCPP_INFO(get_logger(), "arena is (0, 0, 0) to (%g, %g, %g)", arena_x_, arena_y_, arena_z_);
 
   auto start_mission_cb = std::bind(&PlannerNode::start_mission_callback, this, std::placeholders::_1);
   auto stop_mission_cb = std::bind(&PlannerNode::stop_mission_callback, this, std::placeholders::_1);
@@ -75,7 +79,7 @@ PlannerNode::PlannerNode() : Node{"planner_node"}
   start_mission_sub_ = create_subscription<std_msgs::msg::Empty>("/start_mission", 10, start_mission_cb);
   stop_mission_sub_ = create_subscription<std_msgs::msg::Empty>("/stop_mission", 10, stop_mission_cb);
 
-  for (auto i = namespaces.begin(); i != namespaces.end(); i++) {
+  for (auto i = namespaces_.begin(); i != namespaces_.end(); i++) {
     drones_.push_back(std::make_shared<DroneInfo>(this, *i));
   }
 }
@@ -83,7 +87,7 @@ PlannerNode::PlannerNode() : Node{"planner_node"}
 void PlannerNode::create_and_publish_plans()
 {
   // Check arena volume
-  if (std::abs(arena_.x) < MIN_ARENA_XY || std::abs(arena_.y) < MIN_ARENA_XY || arena_.z < MIN_ARENA_Z) {
+  if (std::abs(arena_x_) < MIN_ARENA_XY || std::abs(arena_y_) < MIN_ARENA_XY || arena_z_ < MIN_ARENA_Z) {
     RCLCPP_ERROR(get_logger(), "arena must be at least (%g, %g, %g)", MIN_ARENA_XY, MIN_ARENA_XY, MIN_ARENA_Z);
     return;
   }
@@ -122,6 +126,10 @@ void PlannerNode::stop_mission_callback(const std_msgs::msg::Empty::SharedPtr ms
 {
   (void)msg;
   RCLCPP_INFO(get_logger(), "stop mission");
+}
+
+void PlannerNode::validate_parameters()
+{
 }
 
 } // namespace planner_node

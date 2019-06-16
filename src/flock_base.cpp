@@ -4,14 +4,20 @@ namespace flock_base {
 
 FlockBase::FlockBase() : Node{"flock_base"}
 {
-  // Get drone namespaces
-  if (get_parameter("drones", drones_)) {
+#undef CXT_MACRO_MEMBER
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_LOAD_PARAMETER((*this), (*this), n, t, d)
+  CXT_MACRO_INIT_PARAMETERS(FLOCK_BASE_ALL_PARAMS, validate_parameters);
+
+#undef CXT_MACRO_MEMBER
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_PARAMETER_CHANGED((*this), n, t)
+  CXT_MACRO_REGISTER_PARAMETERS_CHANGED((*this), FLOCK_BASE_ALL_PARAMS, validate_parameters)
+
+  if (namespaces_.size() > 1) {
     RCLCPP_INFO(get_logger(), "%d drones, joystick controls %s, right bumper to change",
-      drones_.size(), drones_[manual_control_].c_str());
+      namespaces_.size(), namespaces_[manual_control_].c_str());
   } else {
     // A single drone always has the namespace "solo"
     RCLCPP_INFO(get_logger(), "1 drone");
-    drones_.push_back("solo");
   }
 
   auto joy_cb = std::bind(&FlockBase::joy_callback, this, std::placeholders::_1);
@@ -21,7 +27,7 @@ FlockBase::FlockBase() : Node{"flock_base"}
   stop_mission_pub_ = create_publisher<std_msgs::msg::Empty>("/stop_mission", 1);
 
   // Create N joy publishers
-  for (auto i = drones_.begin(); i != drones_.end(); i++) {
+  for (auto i = namespaces_.begin(); i != namespaces_.end(); i++) {
     joy_pubs_.push_back(create_publisher<sensor_msgs::msg::Joy>((*i) + "/joy", 1));
   }
 }
@@ -52,13 +58,13 @@ void FlockBase::joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg)
 
   // Toggle between drones
   if (button_down(msg, prev_msg, joy_button_next_drone_)) {
-    if (drones_.size() < 2) {
+    if (namespaces_.size() < 2) {
       RCLCPP_WARN(get_logger(), "there's only 1 drone");
     } else {
-      if (++manual_control_ >= drones_.size()) {
+      if (++manual_control_ >= namespaces_.size()) {
         manual_control_ = 0;
       }
-      RCLCPP_INFO(get_logger(), "joystick controls %s", drones_[manual_control_].c_str());
+      RCLCPP_INFO(get_logger(), "joystick controls %s", namespaces_[manual_control_].c_str());
     }
   }
 
@@ -68,10 +74,9 @@ void FlockBase::joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg)
   prev_msg = *msg;
 }
 
-void FlockBase::spin_once()
-{
-}
-
+  void FlockBase::validate_parameters()
+  {
+  }
 } // namespace flock_base
 
 int main(int argc, char **argv)
@@ -89,9 +94,6 @@ int main(int argc, char **argv)
   rclcpp::Rate r(20);
   while (rclcpp::ok())
   {
-    // Do our work
-    node->spin_once();
-
     // Respond to incoming messages
     rclcpp::spin_some(node);
 

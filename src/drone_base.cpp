@@ -153,10 +153,11 @@ DroneBase::DroneBase() : Node{"drone_base"}
 
 #undef CXT_MACRO_MEMBER
 #define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_LOAD_PARAMETER((*this), cxt_, n, t, d)
-
   CXT_MACRO_INIT_PARAMETERS(DRONE_BASE_ALL_PARAMS, validate_parameters);
 
-  CXT_MACRO_REGISTER_PARAMETERS_CHANGED((*this), parameters_changed);
+#undef CXT_MACRO_MEMBER
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_PARAMETER_CHANGED(cxt_, n, t)
+  CXT_MACRO_REGISTER_PARAMETERS_CHANGED((*this), DRONE_BASE_ALL_PARAMS, validate_parameters)
 
 //  fc_ = std::make_unique<FlightControllerBasic>(*this, cmd_vel_pub_);
   fc_ = std::make_unique<FlightControllerSimple>(*this, cmd_vel_pub_);
@@ -238,18 +239,6 @@ void DroneBase::validate_parameters()
 {
   cxt_.flight_data_timeout_ = rclcpp::Duration(static_cast<int64_t>(RCL_S_TO_NS(cxt_.flight_data_timeout_sec_)));
   cxt_.odom_timeout_ = rclcpp::Duration(static_cast<int64_t>(RCL_S_TO_NS(cxt_.odom_timeout_sec_)));
-}
-
-void DroneBase::parameters_changed(const std::vector<rclcpp::Parameter> &parameters)
-{
-#undef CXT_MACRO_MEMBER
-#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_PARAMETER_CHANGED(cxt_, n, t)
-
-  CXT_MACRO_PARAMETERS_CHANGED_BODY(DRONE_BASE_ALL_PARAMS, parameters, validate_parameters)
-
-  // Explicitly call the FlightControllerBasic's parameters_changed function. This is required
-  // because the node.register_param_change_callback() function can only handle one callback. :(
-  fc_->parameters_changed(parameters);
 }
 
 void DroneBase::start_mission_callback(std_msgs::msg::Empty::SharedPtr msg)

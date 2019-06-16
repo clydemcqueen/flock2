@@ -5,17 +5,25 @@
 #include "sensor_msgs/msg/joy.hpp"
 #include "std_msgs/msg/empty.hpp"
 
+#include "context_macros.hpp"
 #include "joystick.hpp"
 
 namespace flock_base {
 
-class FlockBase : public rclcpp::Node
+#define FLOCK_BASE_ALL_PARAMS \
+  CXT_MACRO_MEMBER(               /*  */ \
+  namespaces, \
+  std::vector<std::string>, "solo") \
+  /* End of list */
+
+  class FlockBase : public rclcpp::Node
 {
+#undef CXT_MACRO_MEMBER
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_DEFINE_MEMBER(n, t, d)
+    FLOCK_BASE_ALL_PARAMS
+
   // Global state
   bool mission_;
-
-  // Drone namespaces
-  std::vector<std::string> drones_;
 
   // Users can use the joystick to manually control one drone at a time
   int manual_control_{0};
@@ -38,9 +46,9 @@ public:
   explicit FlockBase();
   ~FlockBase() {}
 
+private:
   void joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg);
-
-  void spin_once();
+  void validate_parameters();
 };
 
 } // namespace flock_base

@@ -6,9 +6,15 @@
 #include "nav_msgs/msg/path.hpp"
 #include "std_msgs/msg/empty.hpp"
 
+#include "context_macros.hpp"
+
 namespace planner_node {
 
-class DroneInfo
+//=============================================================================
+// DroneInfo
+//=============================================================================
+
+  class DroneInfo
 {
   std::string ns_;
 
@@ -36,10 +42,34 @@ public:
   const rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr plan_pub() const { return plan_pub_; }
 };
 
+//=============================================================================
+// PlannerNode parameters
+//=============================================================================
+
+#define PLANNER_NODE_ALL_PARAMS \
+  CXT_MACRO_MEMBER(               /* */ \
+  arena_x, \
+  double, 2.0) \
+  CXT_MACRO_MEMBER(               /* */ \
+  arena_y, \
+  double, 2.0) \
+  CXT_MACRO_MEMBER(               /* */ \
+  arena_z, \
+  double, 2.0) \
+  CXT_MACRO_MEMBER(               /*  */ \
+  namespaces, \
+  std::vector<std::string>, "solo") \
+  /* End of list */
+
+//=============================================================================
+// PlannerNode
+//=============================================================================
+
 class PlannerNode : public rclcpp::Node
 {
-  // Arena runs from (0, 0, 0) to this point
-  geometry_msgs::msg::Point arena_;
+#undef CXT_MACRO_MEMBER
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_DEFINE_MEMBER(n, t, d)
+    PLANNER_NODE_ALL_PARAMS
 
   // Per-drone info
   std::vector<std::shared_ptr<DroneInfo>> drones_;
@@ -59,6 +89,7 @@ private:
   void stop_mission_callback(const std_msgs::msg::Empty::SharedPtr msg);
 
   void create_and_publish_plans();
+  void validate_parameters();
 };
 
 } // namespace planner_node
