@@ -57,9 +57,16 @@ public:
   arena_z, \
   double, 2.0) \
   CXT_MACRO_MEMBER(               /*  */ \
-  namespaces, \
+  drones, \
   std::vector<std::string>, "solo") \
   /* End of list */
+
+  struct PlannerNodeContext
+  {
+#undef CXT_MACRO_MEMBER
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_DEFINE_MEMBER(n, t, d)
+    PLANNER_NODE_ALL_PARAMS
+  };
 
 //=============================================================================
 // PlannerNode
@@ -67,9 +74,7 @@ public:
 
 class PlannerNode : public rclcpp::Node
 {
-#undef CXT_MACRO_MEMBER
-#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_DEFINE_MEMBER(n, t, d)
-    PLANNER_NODE_ALL_PARAMS
+  PlannerNodeContext cxt_{};
 
   // Per-drone info
   std::vector<std::shared_ptr<DroneInfo>> drones_;

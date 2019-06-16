@@ -12,7 +12,7 @@ namespace flock_base {
 
 #define FLOCK_BASE_ALL_PARAMS \
   CXT_MACRO_MEMBER(               /*  */ \
-  namespaces, \
+  drones, \
   std::vector<std::string>, "solo") \
   /* End of list */
 
