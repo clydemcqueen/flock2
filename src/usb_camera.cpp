@@ -59,7 +59,7 @@ public:
       if (count_subscribers(image_pub_->get_topic_name()) > 0) {
         header_.stamp = stamp;
         cv_bridge::CvImage image{header_, sensor_msgs::image_encodings::BGR8, frame};
-        image_pub_->publish(image.toImageMsg());
+        image_pub_->publish(*image.toImageMsg());
       }
 
       // Publish camera_info

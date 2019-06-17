@@ -25,8 +25,6 @@ namespace drone_base
 
     virtual bool _odom_callback(const nav_msgs::msg::Odometry::SharedPtr &msg) = 0;
 
-    virtual void _parameters_changed(const std::vector<rclcpp::Parameter> &parameters) = 0;
-
   public:
     explicit FlightControllerInterface(rclcpp::Node &node,
                                        rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr &cmd_vel_pub)
@@ -58,11 +56,6 @@ namespace drone_base
     bool odom_callback(const nav_msgs::msg::Odometry::SharedPtr &msg)
     {
       return _odom_callback(msg);
-    }
-
-    void parameters_changed(const std::vector<rclcpp::Parameter> &parameters)
-    {
-      _parameters_changed(parameters);
     }
 
     void publish_velocity(double throttle, double strafe, double vertical, double yaw)

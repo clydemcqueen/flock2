@@ -137,7 +137,6 @@ public:
 
 private:
   void validate_parameters();
-  void parameters_changed(const std::vector<rclcpp::Parameter> &parameters);
 
   // Callbacks
   void joy_callback(sensor_msgs::msg::Joy::SharedPtr msg);

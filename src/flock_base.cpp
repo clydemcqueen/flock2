@@ -4,18 +4,24 @@ namespace flock_base {
 
 FlockBase::FlockBase() : Node{"flock_base"}
 {
-  // Get drone namespaces
-  if (get_parameter("drones", drones_)) {
+#undef CXT_MACRO_MEMBER
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_LOAD_PARAMETER((*this), (*this), n, t, d)
+  CXT_MACRO_INIT_PARAMETERS(FLOCK_BASE_ALL_PARAMS, validate_parameters)
+
+#undef CXT_MACRO_MEMBER
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_PARAMETER_CHANGED((*this), n, t)
+  CXT_MACRO_REGISTER_PARAMETERS_CHANGED((*this), FLOCK_BASE_ALL_PARAMS, validate_parameters)
+
+  if (drones_.size() > 1) {
     RCLCPP_INFO(get_logger(), "%d drones, joystick controls %s, right bumper to change",
       drones_.size(), drones_[manual_control_].c_str());
   } else {
     // A single drone always has the namespace "solo"
     RCLCPP_INFO(get_logger(), "1 drone");
-    drones_.push_back("solo");
   }
 
   auto joy_cb = std::bind(&FlockBase::joy_callback, this, std::placeholders::_1);
-  joy_sub_ = create_subscription<sensor_msgs::msg::Joy>("joy", joy_cb);
+  joy_sub_ = create_subscription<sensor_msgs::msg::Joy>("joy", 10, joy_cb);
 
   start_mission_pub_ = create_publisher<std_msgs::msg::Empty>("/start_mission", 1);
   stop_mission_pub_ = create_publisher<std_msgs::msg::Empty>("/stop_mission", 1);
@@ -63,15 +69,19 @@ void FlockBase::joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg)
   }
 
   // Send joy message to the drone
-  joy_pubs_[manual_control_]->publish(msg);
+  joy_pubs_[manual_control_]->publish(*msg);
 
   prev_msg = *msg;
 }
 
-void FlockBase::spin_once()
-{
-}
+  void FlockBase::validate_parameters()
+  {
+    RCLCPP_INFO(get_logger(), "FlockBase Parameters");
 
+#undef CXT_MACRO_MEMBER
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_LOG_PARAMETER(RCLCPP_INFO, get_logger(), (*this), n, t, d)
+    FLOCK_BASE_ALL_PARAMS
+  }
 } // namespace flock_base
 
 int main(int argc, char **argv)
@@ -89,9 +99,6 @@ int main(int argc, char **argv)
   rclcpp::Rate r(20);
   while (rclcpp::ok())
   {
-    // Do our work
-    node->spin_once();
-
     // Respond to incoming messages
     rclcpp::spin_some(node);
 
