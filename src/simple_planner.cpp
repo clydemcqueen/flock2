@@ -29,7 +29,7 @@ namespace simple_planner {
 
 const double CRUISING_Z = 1.0;      // m
 const double SEPARATION = 4.0;      // m
-const double SPEED = 0.25;           // m/s
+const double SPEED = 0.2;           // m/s
 
 const rclcpp::Duration TAKEOFF{9000000000};  // includes time to send plan and send takeoff command and takeoff.
 const rclcpp::Duration STABILIZE{9000000000};

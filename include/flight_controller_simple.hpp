@@ -75,16 +75,17 @@ namespace drone_base
     SIMPLE_CONTROLLER_ALL_PARAMS
     SIMPLE_CONTROLLER_ALL_OTHERS
 
-    rclcpp::Time last_odom_time_;           // Last pose from odom
+    rclcpp::Time last_odom_time_;           // time of last odometry message
+    DronePose last_pose_;                   // pose from last odometry message
 
-    DronePose curr_target_;                 // Current target pose
     rclcpp::Time curr_target_time_;         // Deadline to hit the current target
+    DronePose curr_target_;                 // Current target pose
 
     // PID controllers
-    pid::Controller x_controller_{false, 0.1, 0, 0};
-    pid::Controller y_controller_{false, 0.1, 0, 0};
-    pid::Controller z_controller_{false, 0.1, 0, 0};
-    pid::Controller yaw_controller_{true, 0.2, 0, 0};
+    pid::Controller2 x_controller_{false, 0.1, 0};
+    pid::Controller2 y_controller_{false, 0.1, 0};
+    pid::Controller2 z_controller_{false, 0.1, 0};
+    pid::Controller2 yaw_controller_{true, 0.2, 0};
 
     void validate_parameters();
 
