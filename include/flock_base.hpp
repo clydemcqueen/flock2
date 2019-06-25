@@ -5,7 +5,7 @@
 #include "sensor_msgs/msg/joy.hpp"
 #include "std_msgs/msg/empty.hpp"
 
-#include "context_macros.hpp"
+#include "ros2_shared/context_macros.hpp"
 #include "joystick.hpp"
 
 namespace flock_base {

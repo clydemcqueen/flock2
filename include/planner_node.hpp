@@ -6,7 +6,7 @@
 #include "nav_msgs/msg/path.hpp"
 #include "std_msgs/msg/empty.hpp"
 
-#include "context_macros.hpp"
+#include "ros2_shared/context_macros.hpp"
 
 namespace planner_node {
 
