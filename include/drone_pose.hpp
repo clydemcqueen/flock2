@@ -89,9 +89,9 @@ struct DronePose
   {
     return
       std::abs(x - that.x) < EPSILON_XYZ &&
-      std::abs(y - that.y) < EPSILON_XYZ /* &&
+      std::abs(y - that.y) < EPSILON_XYZ &&
       std::abs(z - that.z) < EPSILON_XYZ &&
-      std::abs(yaw - that.yaw) < EPSILON_YAW*/;
+      std::abs(yaw - that.yaw) < EPSILON_YAW;
   }
 };
 

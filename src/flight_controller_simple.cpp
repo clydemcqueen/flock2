@@ -73,7 +73,12 @@ namespace drone_base
       // Check if we have reached the target or exceeded the stabilize time.
       if (msg_time > curr_target_time_) {
 
-        if (curr_target_.close_enough(pose, close_enough_xyz_, close_enough_yaw_)) {
+        // For now ignore yaw and z.
+        DronePose test_pose{pose};
+        test_pose.yaw = curr_target_.yaw;
+        test_pose.z = curr_target_.z;
+
+        if (curr_target_.close_enough(test_pose, close_enough_xyz_, close_enough_yaw_)) {
           // Advance to the next target
           set_target(target_ + 1);
         } else if (msg_time > curr_target_time_ + stabilize_time_) {
