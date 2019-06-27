@@ -21,7 +21,7 @@ Use your favorite Python package manager to set up Python 3.6+ and the following
 
 ### 3. Set up your ROS environment
 
-[Install ROS2 Crystal Clemmys](https://index.ros.org/doc/ros2/Installation/) with the `ros-crystal-desktop` option.
+[Install ROS2 Dashing Diademata](https://index.ros.org/doc/ros2/Installation/) with the `ros-dashing-desktop` option.
 
 If you install binaries, be sure to also install the 
 [development tools and ROS tools](https://index.ros.org/doc/ros2/Installation/Linux-Development-Setup/)
@@ -29,7 +29,7 @@ from the source installation instructions.
 
 Install these additional packages:
 ~~~
-sudo apt install ros-crystal-cv-bridge
+sudo apt install ros-dashing-cv-bridge
 ~~~
 
 ### 4. Install dependencies
@@ -42,7 +42,7 @@ git clone https://github.com/clydemcqueen/flock2.git
 git clone https://github.com/ptrmu/fiducial_vlam.git
 git clone https://github.com/clydemcqueen/tello_ros.git
 cd ..
-source /opt/ros/crystal/setup.bash
+source /opt/ros/dashing/setup.bash
 # If you didn't install Gazebo, avoid building tello_gazebo:
 colcon build --event-handlers console_direct+ --packages-skip tello_gazebo
 ~~~
