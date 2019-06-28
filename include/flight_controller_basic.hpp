@@ -1,7 +1,7 @@
 #ifndef FLIGHT_CONTROLLER_BASIC_HPP
 #define FLIGHT_CONTROLLER_BASIC_HPP
 
-#include "context_macros.hpp"
+#include "ros2_shared/context_macros.hpp"
 #include "flight_controller_interface.hpp"
 #include "pid.hpp"
 
@@ -25,7 +25,6 @@ namespace drone_base
 
 #undef CXT_MACRO_MEMBER
 #define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_DEFINE_MEMBER(n, t, d)
-
     BASIC_CONTROLLER_ALL_PARAMS
     BASIC_CONTROLLER_ALL_OTHERS
 
@@ -54,8 +53,6 @@ namespace drone_base
     void _set_target(int target) override;
 
     bool _odom_callback(const nav_msgs::msg::Odometry::SharedPtr &msg) override;
-
-    void _parameters_changed(const std::vector<rclcpp::Parameter> &parameters) override;
   };
 
 }

@@ -24,6 +24,7 @@
   <depend>nav_msgs</depend>
   <depend>rclcpp</depend>
   <depend>rclpy</depend>
+  <depend>ros2_shared</depend>
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
   <depend>tello_msgs</depend>

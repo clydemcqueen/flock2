@@ -10,7 +10,7 @@
 #include "tello_msgs/msg/flight_data.hpp"
 
 #include "action_mgr.hpp"
-#include "context_macros.hpp"
+#include "ros2_shared/context_macros.hpp"
 #include "joystick.hpp"
 
 namespace drone_base {
@@ -137,7 +137,6 @@ public:
 
 private:
   void validate_parameters();
-  void parameters_changed(const std::vector<rclcpp::Parameter> &parameters);
 
   // Callbacks
   void joy_callback(sensor_msgs::msg::Joy::SharedPtr msg);

@@ -153,10 +153,11 @@ DroneBase::DroneBase() : Node{"drone_base"}
 
 #undef CXT_MACRO_MEMBER
 #define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_LOAD_PARAMETER((*this), cxt_, n, t, d)
+  CXT_MACRO_INIT_PARAMETERS(DRONE_BASE_ALL_PARAMS, validate_parameters)
 
-  CXT_MACRO_INIT_PARAMETERS(DRONE_BASE_ALL_PARAMS, validate_parameters);
-
-  CXT_MACRO_REGISTER_PARAMETERS_CHANGED((*this), parameters_changed);
+#undef CXT_MACRO_MEMBER
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_PARAMETER_CHANGED(cxt_, n, t)
+  CXT_MACRO_REGISTER_PARAMETERS_CHANGED((*this), DRONE_BASE_ALL_PARAMS, validate_parameters)
 
 //  fc_ = std::make_unique<FlightControllerBasic>(*this, cmd_vel_pub_);
   fc_ = std::make_unique<FlightControllerSimple>(*this, cmd_vel_pub_);
@@ -175,13 +176,13 @@ DroneBase::DroneBase() : Node{"drone_base"}
   auto odom_cb = std::bind(&DroneBase::odom_callback, this, _1);
   auto plan_cb = std::bind(&DroneBase::plan_callback, this, _1);
 
-  start_mission_sub_ = create_subscription<std_msgs::msg::Empty>("/start_mission", start_mission_cb);
-  stop_mission_sub_ = create_subscription<std_msgs::msg::Empty>("/stop_mission", stop_mission_cb);
-  joy_sub_ = create_subscription<sensor_msgs::msg::Joy>("joy", joy_cb);
-  tello_response_sub_ = create_subscription<tello_msgs::msg::TelloResponse>("tello_response", tello_response_cb);
-  flight_data_sub_ = create_subscription<tello_msgs::msg::FlightData>("flight_data", flight_data_cb);
-  odom_sub_ = create_subscription<nav_msgs::msg::Odometry>("filtered_odom", odom_cb);
-  plan_sub_ = create_subscription<nav_msgs::msg::Path>("plan", plan_cb);
+  start_mission_sub_ = create_subscription<std_msgs::msg::Empty>("/start_mission", 10, start_mission_cb);
+  stop_mission_sub_ = create_subscription<std_msgs::msg::Empty>("/stop_mission", 10, stop_mission_cb);
+  joy_sub_ = create_subscription<sensor_msgs::msg::Joy>("joy", 10, joy_cb);
+  tello_response_sub_ = create_subscription<tello_msgs::msg::TelloResponse>("tello_response", 10, tello_response_cb);
+  flight_data_sub_ = create_subscription<tello_msgs::msg::FlightData>("flight_data", 10, flight_data_cb);
+  odom_sub_ = create_subscription<nav_msgs::msg::Odometry>("filtered_odom", 10, odom_cb);
+  plan_sub_ = create_subscription<nav_msgs::msg::Path>("plan", 10, plan_cb);
 
   RCLCPP_INFO(get_logger(), "drone initialized");
 }
@@ -192,7 +193,8 @@ void DroneBase::spin_once()
 
   // Check for flight data timeout
   if (PoseUtil::is_valid_time(flight_data_time_) && ros_time - flight_data_time_ > cxt_.flight_data_timeout_) {
-    RCLCPP_ERROR(get_logger(), "flight data timeout, now %ld, last %ld", ros_time.nanoseconds(), flight_data_time_.nanoseconds());
+    RCLCPP_ERROR(get_logger(), "flight data timeout, now %ld, last %ld",
+                 RCL_NS_TO_MS(ros_time.nanoseconds()), RCL_NS_TO_MS(flight_data_time_.nanoseconds()));
     transition_state(Event::disconnected);
     flight_data_time_ = rclcpp::Time();  // Zero time is invalid
     odom_time_ = rclcpp::Time();
@@ -200,7 +202,8 @@ void DroneBase::spin_once()
 
   // Check for odometry timeout
   if (PoseUtil::is_valid_time(odom_time_) && ros_time - odom_time_ > cxt_.odom_timeout_) {
-    RCLCPP_ERROR(get_logger(), "odom timeout, now %ld, last %ld", ros_time.nanoseconds(), odom_time_.nanoseconds());
+    RCLCPP_ERROR(get_logger(), "odom timeout, now %ld, last %ld",
+                 RCL_NS_TO_MS(ros_time.nanoseconds()), RCL_NS_TO_MS(odom_time_.nanoseconds()));
     transition_state(Event::odometry_stopped);
     odom_time_ = rclcpp::Time();
   }
@@ -238,18 +241,12 @@ void DroneBase::validate_parameters()
 {
   cxt_.flight_data_timeout_ = rclcpp::Duration(static_cast<int64_t>(RCL_S_TO_NS(cxt_.flight_data_timeout_sec_)));
   cxt_.odom_timeout_ = rclcpp::Duration(static_cast<int64_t>(RCL_S_TO_NS(cxt_.odom_timeout_sec_)));
-}
 
-void DroneBase::parameters_changed(const std::vector<rclcpp::Parameter> &parameters)
-{
+  RCLCPP_INFO(get_logger(), "DroneBase Parameters");
+
 #undef CXT_MACRO_MEMBER
-#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_PARAMETER_CHANGED(cxt_, n, t)
-
-  CXT_MACRO_PARAMETERS_CHANGED_BODY(DRONE_BASE_ALL_PARAMS, parameters, validate_parameters)
-
-  // Explicitly call the FlightControllerBasic's parameters_changed function. This is required
-  // because the node.register_param_change_callback() function can only handle one callback. :(
-  fc_->parameters_changed(parameters);
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_LOG_PARAMETER(RCLCPP_INFO, get_logger(), cxt_, n, t, d)
+  DRONE_BASE_ALL_PARAMS
 }
 
 void DroneBase::start_mission_callback(std_msgs::msg::Empty::SharedPtr msg)
@@ -376,9 +373,10 @@ void DroneBase::odom_callback(nav_msgs::msg::Odometry::SharedPtr msg)
 void DroneBase::plan_callback(nav_msgs::msg::Path::SharedPtr msg)
 {
   if (mission_) {
+    RCLCPP_INFO(get_logger(), "Got plan with %d waypoints, plan msg time %ld, last odom time %ld, ros time %ld ",
+                msg->poses.size(), RCL_NS_TO_MS(rclcpp::Time(msg->header.stamp).nanoseconds()),
+                RCL_NS_TO_MS(odom_time_.nanoseconds()), RCL_NS_TO_MS(now().nanoseconds()));
     fc_->set_plan(msg);
-    RCLCPP_INFO(get_logger(), "got a plan with %d waypoints starting at time %ld",
-      msg->poses.size(), rclcpp::Time(msg->header.stamp).nanoseconds());
   }
 }
 

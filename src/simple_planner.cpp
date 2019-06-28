@@ -29,10 +29,10 @@ namespace simple_planner {
 
 const double CRUISING_Z = 1.0;      // m
 const double SEPARATION = 4.0;      // m
-const double SPEED = 1.0;           // m/s
+const double SPEED = 0.2;           // m/s
 
-const rclcpp::Duration TAKEOFF{5000000000};
-const rclcpp::Duration STABILIZE{5000000000};
+const rclcpp::Duration TAKEOFF{9000000000};  // includes time to send plan and send takeoff command and takeoff.
+const rclcpp::Duration STABILIZE{9000000000};
 
 #define SUPER_SIMPLE
 
@@ -40,12 +40,17 @@ const rclcpp::Duration STABILIZE{5000000000};
 // x, y, z, yaw
 double starting_locations[4][4] = {
   // Face the wall of markers in fiducial.world
-  -2.5,  1.5,  1.0,  0.0,
-  -1.5,  0.5,  1.0,  0.785,
-  -0.5,  1.5,  1.0,  0.0,
-  -1.5,  2.5,  1.0, -0.785
+//  -2.5,  1.5,  1.0,  0.0,
+//  -1.5,  0.5,  1.0,  0.785,
+//  -0.5,  1.5,  1.0,  0.0,
+//  -1.5,  2.5,  1.0, -0.785
 
-  // Face all 4 directions in f2.world
+  -1.0,  1.0,  1.0,  0.0,
+  -1.0,  0.5,  1.0,  0.0,
+  -1.0,  0.0,  1.0,  0.0,
+  -1.0,  -0.5,  1.0, -0.0
+
+    // Face all 4 directions in f2.world
   // -2.5,  1.5,  1.0,  0.0,
   // -1.5,  0.5,  1.0,  1.57,
   // -0.5,  1.5,  1.0,  3.14,
@@ -123,7 +128,7 @@ std::vector<nav_msgs::msg::Path> SimplePlanner::plans(const rclcpp::Time &now) c
     plans.push_back(path);
 
     // Timestamp for waypoint 0
-    rclcpp::Time timestamp = now + TAKEOFF + STABILIZE;
+    rclcpp::Time timestamp = now + TAKEOFF;
 
     // Add waypoints to path
     for (int j = 0; j < waypoints_.size(); j++) {
@@ -132,7 +137,7 @@ std::vector<nav_msgs::msg::Path> SimplePlanner::plans(const rclcpp::Time &now) c
       plans[i].poses[j].header.stamp = timestamp;
 
       // Timestamp for waypoint j + 1
-      timestamp = timestamp + flight_time[curr] + STABILIZE;
+      timestamp = timestamp + flight_time[curr];
     }
 
     // Last waypoint returns to the spot just above the landing pose

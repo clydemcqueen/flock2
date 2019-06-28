@@ -7,7 +7,7 @@
 #include "nav_msgs/msg/odometry.hpp"
 #include "nav_msgs/msg/path.hpp"
 
-#include "context_macros.hpp"
+#include "ros2_shared/context_macros.hpp"
 #include "flight_controller_interface.hpp"
 #include "pid.hpp"
 
@@ -19,19 +19,19 @@ namespace drone_base
   double, 5.) \
   CXT_MACRO_MEMBER(               /* PID coefficients */ \
   pid_x_kp, \
-  double, 0.1) \
+  double, 1.0) \
   CXT_MACRO_MEMBER(               /* PID coefficients */ \
   pid_x_kd, \
-  double, 0.0) \
+  double, 0.15) \
   CXT_MACRO_MEMBER(               /* PID coefficients */ \
   pid_x_ki, \
   double, 0.0) \
   CXT_MACRO_MEMBER(               /* PID coefficients */ \
   pid_y_kp, \
-  double, 0.1) \
+  double, 1.0) \
   CXT_MACRO_MEMBER(               /* PID coefficients */ \
   pid_y_kd, \
-  double, 0.0) \
+  double, 0.15) \
   CXT_MACRO_MEMBER(               /* PID coefficients */ \
   pid_y_ki, \
   double, 0.0) \
@@ -72,20 +72,20 @@ namespace drone_base
 
 #undef CXT_MACRO_MEMBER
 #define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_DEFINE_MEMBER(n, t, d)
-
     SIMPLE_CONTROLLER_ALL_PARAMS
     SIMPLE_CONTROLLER_ALL_OTHERS
 
-    rclcpp::Time last_odom_time_;           // Last pose from odom
+    rclcpp::Time last_odom_time_;           // time of last odometry message
+    DronePose last_pose_;                   // pose from last odometry message
 
-    DronePose curr_target_;                 // Current target pose
     rclcpp::Time curr_target_time_;         // Deadline to hit the current target
+    DronePose curr_target_;                 // Current target pose
 
     // PID controllers
-    pid::Controller x_controller_{false, 0.1, 0, 0};
-    pid::Controller y_controller_{false, 0.1, 0, 0};
-    pid::Controller z_controller_{false, 0.1, 0, 0};
-    pid::Controller yaw_controller_{true, 0.2, 0, 0};
+    pid::Controller2 x_controller_{false, 0.1, 0};
+    pid::Controller2 y_controller_{false, 0.1, 0};
+    pid::Controller2 z_controller_{false, 0.1, 0};
+    pid::Controller2 yaw_controller_{true, 0.2, 0};
 
     void validate_parameters();
 
@@ -97,8 +97,6 @@ namespace drone_base
     void _set_target(int target) override;
 
     bool _odom_callback(const nav_msgs::msg::Odometry::SharedPtr &msg) override;
-
-    void _parameters_changed(const std::vector<rclcpp::Parameter> &parameters) override;
   };
 }
 #endif //FLIGHT_CONTROLLER_SIMPLE_HPP
