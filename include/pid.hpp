@@ -3,7 +3,8 @@
 
 #include <math.h>
 
-namespace pid {
+namespace pid
+{
 
   class Controller
   {
@@ -62,15 +63,12 @@ namespace pid {
     {
       double error = target_ - state;
 
-      if (angle_)
-      {
+      if (angle_) {
         // Deal with discontinuity
-        while (error < -M_PI)
-        {
+        while (error < -M_PI) {
           error += 2 * M_PI;
         }
-        while (error > M_PI)
-        {
+        while (error > M_PI) {
           error -= 2 * M_PI;
         }
       }
@@ -113,15 +111,12 @@ namespace pid {
       double y_error = y_target - y_actual;
       double y_dot_error = y_dot_target - y_dot_actual;
 
-      if (angle_)
-      {
+      if (angle_) {
         // Deal with discontinuity
-        while (y_error < -M_PI)
-        {
+        while (y_error < -M_PI) {
           y_error += 2 * M_PI;
         }
-        while (y_error > M_PI)
-        {
+        while (y_error > M_PI) {
           y_error -= 2 * M_PI;
         }
       }

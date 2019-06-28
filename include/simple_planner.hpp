@@ -6,20 +6,23 @@
 #include "nav_msgs/msg/path.hpp"
 #include "std_msgs/msg/empty.hpp"
 
-namespace simple_planner {
-
-class SimplePlanner
+namespace simple_planner
 {
-  int num_drones_;
-  std::vector<geometry_msgs::msg::PoseStamped> waypoints_;
 
-public:
+  class SimplePlanner
+  {
+    int num_drones_;
+    std::vector<geometry_msgs::msg::PoseStamped> waypoints_;
 
-  explicit SimplePlanner(const std::vector<geometry_msgs::msg::PoseStamped> &landing_poses);
-  ~SimplePlanner() {}
+  public:
 
-  std::vector<nav_msgs::msg::Path> plans(const rclcpp::Time &now) const;
-};
+    explicit SimplePlanner(const std::vector<geometry_msgs::msg::PoseStamped> &landing_poses);
+
+    ~SimplePlanner()
+    {}
+
+    std::vector<nav_msgs::msg::Path> plans(const rclcpp::Time &now) const;
+  };
 
 } // namespace simple_planner
 

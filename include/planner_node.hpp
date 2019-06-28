@@ -8,39 +8,49 @@
 
 #include "ros2_shared/context_macros.hpp"
 
-namespace planner_node {
+namespace planner_node
+{
 
 //=============================================================================
 // DroneInfo
 //=============================================================================
 
   class DroneInfo
-{
-  std::string ns_;
+  {
+    std::string ns_;
 
-  // Pose for takeoff and landing
-  bool valid_landing_pose_;
-  geometry_msgs::msg::PoseStamped landing_pose_;
+    // Pose for takeoff and landing
+    bool valid_landing_pose_;
+    geometry_msgs::msg::PoseStamped landing_pose_;
 
-  // At the moment, odometry is only used to capture the landing pad location
-  // In the future the plan might be updated based on current drone locations
-  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+    // At the moment, odometry is only used to capture the landing pad location
+    // In the future the plan might be updated based on current drone locations
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
 
-  // Publish a plan at 1Hz
-  rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr plan_pub_;
+    // Publish a plan at 1Hz
+    rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr plan_pub_;
 
-  void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
+    void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
 
-public:
+  public:
 
-  explicit DroneInfo(rclcpp::Node *node, std::string ns);
-  ~DroneInfo() {};
+    explicit DroneInfo(rclcpp::Node *node, std::string ns);
 
-  std::string ns() const { return ns_; }
-  bool valid_landing_pose() const { return valid_landing_pose_; }
-  const geometry_msgs::msg::PoseStamped &landing_pose() const { return landing_pose_; }
-  const rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr plan_pub() const { return plan_pub_; }
-};
+    ~DroneInfo()
+    {};
+
+    std::string ns() const
+    { return ns_; }
+
+    bool valid_landing_pose() const
+    { return valid_landing_pose_; }
+
+    const geometry_msgs::msg::PoseStamped &landing_pose() const
+    { return landing_pose_; }
+
+    const rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr plan_pub() const
+    { return plan_pub_; }
+  };
 
 //=============================================================================
 // PlannerNode parameters
@@ -72,30 +82,34 @@ public:
 // PlannerNode
 //=============================================================================
 
-class PlannerNode : public rclcpp::Node
-{
-  PlannerNodeContext cxt_{};
+  class PlannerNode : public rclcpp::Node
+  {
+    PlannerNodeContext cxt_{};
 
-  // Per-drone info
-  std::vector<std::shared_ptr<DroneInfo>> drones_;
+    // Per-drone info
+    std::vector<std::shared_ptr<DroneInfo>> drones_;
 
-  // Global subscriptions
-  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr start_mission_sub_;
-  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr stop_mission_sub_;
+    // Global subscriptions
+    rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr start_mission_sub_;
+    rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr stop_mission_sub_;
 
-public:
+  public:
 
-  explicit PlannerNode();
-  ~PlannerNode() {}
+    explicit PlannerNode();
 
-private:
+    ~PlannerNode()
+    {}
 
-  void start_mission_callback(const std_msgs::msg::Empty::SharedPtr msg);
-  void stop_mission_callback(const std_msgs::msg::Empty::SharedPtr msg);
+  private:
 
-  void create_and_publish_plans();
-  void validate_parameters();
-};
+    void start_mission_callback(const std_msgs::msg::Empty::SharedPtr msg);
+
+    void stop_mission_callback(const std_msgs::msg::Empty::SharedPtr msg);
+
+    void create_and_publish_plans();
+
+    void validate_parameters();
+  };
 
 } // namespace planner_node
 

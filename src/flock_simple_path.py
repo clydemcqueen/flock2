@@ -134,8 +134,8 @@ class VelocityController(object):
         self._kp_yaw = 1.0  # gain for yaw error
 
         # some limits to use
-        self._v_max = 0.4       # the maximum horizontal velocity
-        self._hdot_max = 0.4    # the maximum vertical velocity
+        self._v_max = 0.4  # the maximum horizontal velocity
+        self._hdot_max = 0.4  # the maximum vertical velocity
         self._yawdot_max = 0.8  # the maximum yaw rate
 
     def lateral_position_control(self, pos_cmd, pos, vel_target=np.array((0., 0.))):
@@ -144,9 +144,9 @@ class VelocityController(object):
         lateral_vel_cmd = np.clip(lateral_vel_cmd, -self._v_max, self._v_max)
         print(
             ("pos_cmd:{0:7.3f},{1:7.3f}; pos:{2:7.3f},{3:7.3f}; pos_error:{4:7.3f},{5:7.3f}; " +
-                "vel_target:{6:7.3f},{7:7.3f}; lateral_vel_cmd:{8:7.3f},{9:7.3f}")
-            .format(pos_cmd[0], pos_cmd[1], pos[0], pos[1], pos_error[0], pos_error[1],
-                    vel_target[0], vel_target[1], lateral_vel_cmd[0], lateral_vel_cmd[1]))
+             "vel_target:{6:7.3f},{7:7.3f}; lateral_vel_cmd:{8:7.3f},{9:7.3f}")
+                .format(pos_cmd[0], pos_cmd[1], pos[0], pos[1], pos_error[0], pos_error[1],
+                        vel_target[0], vel_target[1], lateral_vel_cmd[0], lateral_vel_cmd[1]))
         return lateral_vel_cmd
 
     def altitude_control(self, alt_cmd, alt, hdot_target=0.0):
@@ -289,7 +289,7 @@ class TrajectoryVelocityFlyer:
         yaw_target = np.arctan2(-pos_target[1], -pos_target[0])
         vel_target_half = 0.5 * vel_target
         yaw_dot_target = np.arctan2(-pos_target[1] + vel_target_half[1], -pos_target[0] + vel_target_half[0]) - \
-            np.arctan2(-pos_target[1] - vel_target_half[1], -pos_target[0] - vel_target_half[0])
+                         np.arctan2(-pos_target[1] - vel_target_half[1], -pos_target[0] - vel_target_half[0])
         vel_cmd[3] = self._controller.yaw_control(yaw_target, drone_state[3], -yaw_dot_target)
 
         # The vel_cmd should be in the drone frame. Rotate the command velocities by the yaw.
@@ -339,7 +339,6 @@ class TrajectoryVelocityFlyer:
 
 
 class FlockSimplePath(Node):
-
     class States(Enum):
         INIT = 0
         RUNNING = 1

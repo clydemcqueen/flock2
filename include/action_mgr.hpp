@@ -5,7 +5,8 @@
 #include "tello_msgs/srv/tello_action.hpp"
 #include "tello_msgs/msg/tello_response.hpp"
 
-namespace drone_base {
+namespace drone_base
+{
 
 //==========================
 // tello_driver uses a ROS service plus a ROS topic to simulate an action.
@@ -19,54 +20,62 @@ namespace drone_base {
 // Only one action can be active at a time.
 //==========================
 
-enum class Action;
+  enum class Action;
 
-class ActionMgr
-{
-public:
-
-  enum class State
+  class ActionMgr
   {
-    not_sent,                    // TelloAction::Request not sent yet
-    waiting_for_future,          // Waiting for TelloAction::Response
-    waiting_for_response,        // Waiting for TelloResponse
-    succeeded,                   // Action succeeded, see the result string
-    failed,                      // Action failed, see the result string
-    failed_lost_connection,      // Action failed, there's no connection to the drone
+  public:
+
+    enum class State
+    {
+      not_sent,                    // TelloAction::Request not sent yet
+      waiting_for_future,          // Waiting for TelloAction::Response
+      waiting_for_response,        // Waiting for TelloResponse
+      succeeded,                   // Action succeeded, see the result string
+      failed,                      // Action failed, see the result string
+      failed_lost_connection,      // Action failed, there's no connection to the drone
+    };
+
+  private:
+
+    // Init by constructor
+    rclcpp::Logger logger_;
+    rclcpp::Client<tello_msgs::srv::TelloAction>::SharedPtr client_;
+    State state_ = State::not_sent;
+
+    // Init by send()
+    Action action_;
+    std::string action_str_;
+    std::shared_future<tello_msgs::srv::TelloAction::Response::SharedPtr> future_;
+    std::string result_str_;
+
+  public:
+
+    explicit ActionMgr(rclcpp::Logger logger, rclcpp::Client<tello_msgs::srv::TelloAction>::SharedPtr client) :
+      logger_{logger}, client_{client}
+    {}
+
+    ~ActionMgr()
+    {}
+
+    State send(Action action, std::string action_str);
+
+    State spin_once();
+
+    State complete(tello_msgs::msg::TelloResponse::SharedPtr msg);
+
+    Action action()
+    { return action_; }
+
+    std::string action_str()
+    { return action_str_; }
+
+    std::string result_str()
+    { return result_str_; }
+
+    bool busy()
+    { return state_ == State::waiting_for_future || state_ == State::waiting_for_response; }
   };
-
-private:
-
-  // Init by constructor
-  rclcpp::Logger logger_;
-  rclcpp::Client<tello_msgs::srv::TelloAction>::SharedPtr client_;
-  State state_ = State::not_sent;
-
-  // Init by send()
-  Action action_;
-  std::string action_str_;
-  std::shared_future<tello_msgs::srv::TelloAction::Response::SharedPtr> future_;
-  std::string result_str_;
-
-public:
-
-  explicit ActionMgr(rclcpp::Logger logger, rclcpp::Client<tello_msgs::srv::TelloAction>::SharedPtr client):
-  logger_{logger}, client_{client}
-  {}
-
-  ~ActionMgr()
-  {}
-
-  State send(Action action, std::string action_str);
-  State spin_once();
-  State complete(tello_msgs::msg::TelloResponse::SharedPtr msg);
-
-  Action action() { return action_; }
-  std::string action_str() { return action_str_; }
-  std::string result_str() { return result_str_; }
-
-  bool busy() { return state_ == State::waiting_for_future || state_ == State::waiting_for_response; }
-};
 
 } // namespace drone_base
 
