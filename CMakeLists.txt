@@ -39,7 +39,6 @@ endif()
 # Find packages
 find_package(ament_cmake REQUIRED)
 find_package(builtin_interfaces REQUIRED)
-find_package(Eigen3)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -54,7 +53,6 @@ find_package(visualization_msgs REQUIRED)
 # Local includes
 include_directories(
   include
-  ${Eigen3_INCLUDE_DIRS}
   ${geometry_msgs_INCLUDE_DIRS}
   ${nav_msgs_INCLUDE_DIRS}
   ${rclcpp_INCLUDE_DIRS}
