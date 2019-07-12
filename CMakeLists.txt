@@ -39,8 +39,6 @@ endif()
 # Find packages
 find_package(ament_cmake REQUIRED)
 find_package(builtin_interfaces REQUIRED)
-find_package(cv_bridge REQUIRED)
-find_package(Eigen3)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -55,8 +53,6 @@ find_package(visualization_msgs REQUIRED)
 # Local includes
 include_directories(
   include
-  ${cv_bridge_INCLUDE_DIRS}
-  ${Eigen3_INCLUDE_DIRS}
   ${geometry_msgs_INCLUDE_DIRS}
   ${nav_msgs_INCLUDE_DIRS}
   ${rclcpp_INCLUDE_DIRS}
@@ -108,19 +104,6 @@ ament_target_dependencies(
 )
 
 #=============
-# USB camera node
-#=============
-
-add_executable(usb_camera src/usb_camera.cpp)
-
-ament_target_dependencies(
-  usb_camera
-  cv_bridge
-  rclcpp
-  sensor_msgs
-)
-
-#=============
 # Planner node
 #=============
 
@@ -147,7 +130,6 @@ install(
   TARGETS
   flock_base
   drone_base
-  usb_camera
   planner_node
   DESTINATION lib/${PROJECT_NAME}
 )
@@ -164,7 +146,6 @@ install(
 # Install various directories
 install(
   DIRECTORY
-  cfg
   launch
   DESTINATION share/${PROJECT_NAME}
 )
