@@ -172,7 +172,7 @@ Visualization Manager:
         Shaft Length: 1
         Shaft Radius: 0.05000000074505806
         Value: Axes
-      Topic: /solo/filtered_odom
+      Topic: /solo/base_odom
       Unreliable: false
       Value: true
   Enabled: true

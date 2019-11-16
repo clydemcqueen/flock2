@@ -56,9 +56,9 @@ def generate_launch_description():
              arguments=[urdf2]),
 
         # N drivers
-        Node(package='tello_driver', node_executable='tello_driver', output='screen',
+        Node(package='tello_driver', node_executable='tello_driver_main', output='screen',
              node_name='driver1', node_namespace=dr1_ns, parameters=dr1_params),
-        Node(package='tello_driver', node_executable='tello_driver', output='screen',
+        Node(package='tello_driver', node_executable='tello_driver_main', output='screen',
              node_name='driver2', node_namespace=dr2_ns, parameters=dr2_params),
 
         # Joystick
@@ -82,10 +82,4 @@ def generate_launch_description():
              node_name='vloc1', node_namespace=dr1_ns),
         Node(package='fiducial_vlam', node_executable='vloc_node', output='screen',
              node_name='vloc2', node_namespace=dr2_ns),
-
-        # N Kalman filters
-        Node(package='odom_filter', node_executable='filter_node', output='screen',
-             node_name='filter1', node_namespace=dr1_ns, parameters=filter1_params),
-        Node(package='odom_filter', node_executable='filter_node', output='screen',
-             node_name='filter2', node_namespace=dr2_ns, parameters=filter2_params),
     ])

@@ -3,7 +3,6 @@
 `flock2` can fly a swarm of [DJI Tello](https://store.dji.com/product/tello) drones.
 `flock2` is built on top of [ROS2](https://index.ros.org/doc/ros2/),
  [fiducial_vlam](https://github.com/ptrmu/fiducial_vlam),
- [odom_filter](https://github.com/clydemcqueen/odom_filter),
  and [tello_ros](https://github.com/clydemcqueen/tello_ros).
 
 ## Installation
@@ -21,7 +20,7 @@ Use your favorite Python package manager to set up Python 3.6+ and the following
 
 ### 3. Set up your ROS environment
 
-[Install ROS2 Dashing Diademata](https://index.ros.org/doc/ros2/Installation/) with the `ros-dashing-desktop` option.
+[Install ROS2 Eloquent Elusor](https://index.ros.org/doc/ros2/Installation/) with the `ros-eloquent-desktop` option.
 
 If you install binaries, be sure to also install the 
 [development tools and ROS tools](https://index.ros.org/doc/ros2/Installation/Linux-Development-Setup/)
@@ -29,7 +28,7 @@ from the source installation instructions.
 
 Install these additional packages:
 ~~~
-sudo apt install ros-dashing-cv-bridge ros-dashing-camera-calibration-parsers ros-dashing-gazebo-ros
+sudo apt install ros-eloquent-cv-bridge ros-eloquent-camera-calibration-parsers ros-eloquent-gazebo-ros
 ~~~
 
 ### 4. Install dependencies
@@ -42,7 +41,7 @@ git clone https://github.com/clydemcqueen/flock2.git
 git clone https://github.com/ptrmu/fiducial_vlam.git
 git clone https://github.com/clydemcqueen/tello_ros.git
 cd ..
-source /opt/ros/dashing/setup.bash
+source /opt/ros/eloquent/setup.bash
 # If you didn't install Gazebo, avoid building tello_gazebo:
 colcon build --event-handlers console_direct+ --packages-skip tello_gazebo
 ~~~
@@ -119,7 +118,7 @@ The overall mission dataflow looks like this:
 1. `flock_base` publishes a message on the `/start_mission` topic
 2. `planner_node` generates an overall pattern of flight for all drones, and publishes a 
 sequence waypoints for each drone on `/[prefix]/plan`
-3. `drone_base` subscribes to `~plan` and `~filtered_odometry`, runs a PID controller,
+3. `drone_base` subscribes to `~plan` and `~base_odom`, runs a PID controller,
 and sends commands to `tello_ros`
 
 If odometry stops arriving `drone_base` will execute a series of recovery tasks, which might include landing.
@@ -157,7 +156,7 @@ Controls a single Tello drone. Akin to `move_base` in the ROS navigation stack.
 * `~joy` [sensor_msgs/Joy](http://docs.ros.org/api/sensor_msgs/html/msg/Joy.html)
 * `~tello_response` tello_msgs/TelloResponse
 * `~flight_data` tello_msgs/FlightData
-* `~filtered_odom` [nav_msgs/Odometry](http://docs.ros.org/api/nav_msgs/html/msg/Odometry.html)
+* `~base_odom` [nav_msgs/Odometry](http://docs.ros.org/api/nav_msgs/html/msg/Odometry.html)
 
 ##### Published topics
 
@@ -175,7 +174,7 @@ Compute and publish a set of waypoints for each drone in a flock.
 
 * `/start_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
 * `/stop_mission` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
-* `~[prefix]/filtered_odom` [nav_msgs/Odometry](http://docs.ros.org/api/nav_msgs/html/msg/Odometry.html)
+* `~[prefix]/base_odom` [nav_msgs/Odometry](http://docs.ros.org/api/nav_msgs/html/msg/Odometry.html)
 
 ##### Published topics
 
