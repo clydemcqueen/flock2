@@ -38,9 +38,9 @@ Download, compile and install the following packages:
 ~~~
 mkdir -p ~/flock2_ws/src
 cd ~/flock2_ws/src
-git clone https://github.com/clydemcqueen/flock2.git
+git clone https://github.com/clydemcqueen/flock2.git -b dashing
 git clone https://github.com/ptrmu/fiducial_vlam.git
-git clone https://github.com/clydemcqueen/tello_ros.git
+git clone https://github.com/clydemcqueen/tello_ros.git -b dashing
 cd ..
 source /opt/ros/dashing/setup.bash
 # If you didn't install Gazebo, avoid building tello_gazebo:
