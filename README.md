@@ -125,6 +125,22 @@ If odometry stops arriving `drone_base` will execute a series of recovery tasks,
 
 If flight indicates that a drone has a low battery `drone_base` will land the drone.
 
+### Simulating 4 drones in Gazebo
+
+[Install Gazebo 9 and build tello_gazebo](https://github.com/clydemcqueen/tello_ros/tree/master/tello_gazebo),
+if you haven't already.
+
+~~~
+cd ~/flock2_ws
+source install/setup.bash
+export GAZEBO_MODEL_PATH=${PWD}/install/tello_gazebo/share/tello_gazebo/models
+source /usr/share/gazebo/setup.sh
+ros2 launch flock2 gazebo_launch.py
+~~~
+
+Hit the "B" button on the XBox controller to start the mission.
+You should see 4 drones take off, rotate through 4 positions, then land.
+
 ### Node details
 
 #### flock_base
@@ -188,3 +204,32 @@ The default is `['solo']`.
 * `arena_x` defines the X extent of the arena, in meters. The default is 2.
 * `arena_y` defines the Y extent of the arena, in meters. The default is 2.
 * `arena_z` defines the Z extent of the arena, in meters. Must be greater than 1.5. The default is 2.
+
+## Versions and branches
+
+`flock2` was developed along with several other projects while ROS2 was rapidly changing.
+All of the related projects adopted similar conventions around branch names:
+* the `master` branch works with the latest ROS2 release (Eloquent as of this writing)
+* there may be branches for older ROS2 versions, such as `crystal` or `dashing`
+
+The following projects and branches were tested together:
+
+* ROS Dashing:
+  * git clone https://github.com/ptrmu/ros2_shared.git
+  * git clone https://github.com/ptrmu/fiducial_vlam.git
+  * git clone https://github.com/clydemcqueen/tello_ros.git -b dashing
+  * git clone https://github.com/clydemcqueen/flock2.git -b dashing
+
+* ROS2 Eloquent with fiducial_vlam:
+  * git clone https://github.com/ptrmu/ros2_shared.git
+  * git clone https://github.com/ptrmu/fiducial_vlam.git
+  * git clone https://github.com/clydemcqueen/tello_ros.git
+  * git clone https://github.com/clydemcqueen/flock2.git
+
+* ROS2 Eloquent with fiducial_vlam_sam:
+  * git clone https://github.com/ptrmu/ros2_shared.git
+  * git clone https://github.com/ptrmu/fiducial_vlam_sam.git
+  * git clone https://github.com/clydemcqueen/sim_fiducial.git
+  * git clone https://github.com/clydemcqueen/tello_ros.git
+  * git clone https://github.com/clydemcqueen/flock2.git
+
