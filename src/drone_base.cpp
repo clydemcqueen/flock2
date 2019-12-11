@@ -182,7 +182,7 @@ namespace drone_base
     joy_sub_ = create_subscription<sensor_msgs::msg::Joy>("joy", 10, joy_cb);
     tello_response_sub_ = create_subscription<tello_msgs::msg::TelloResponse>("tello_response", 10, tello_response_cb);
     flight_data_sub_ = create_subscription<tello_msgs::msg::FlightData>("flight_data", 10, flight_data_cb);
-    odom_sub_ = create_subscription<nav_msgs::msg::Odometry>("filtered_odom", 10, odom_cb);
+    odom_sub_ = create_subscription<nav_msgs::msg::Odometry>("base_odom", 10, odom_cb);
     plan_sub_ = create_subscription<nav_msgs::msg::Path>("plan", 10, plan_cb);
 
     RCLCPP_INFO(get_logger(), "drone initialized");

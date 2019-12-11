@@ -19,7 +19,7 @@ def generate_launch_description():
              arguments=[urdf]),
 
         # Driver
-        Node(package='tello_driver', node_executable='tello_driver', output='screen',
+        Node(package='tello_driver', node_executable='tello_driver_main', output='screen',
              node_name='tello_driver', node_namespace='solo'),
 
         # Joystick
@@ -38,10 +38,6 @@ def generate_launch_description():
         # Visual localizer
         Node(package='fiducial_vlam', node_executable='vloc_node', output='screen',
              node_name='vloc_node', node_namespace='solo'),
-
-        # Kalman filter
-        Node(package='odom_filter', node_executable='filter_node', output='screen',
-             node_name='filter_node', node_namespace='solo'),
 
         # WIP: planner
         Node(package='flock2', node_executable='planner_node', output='screen'),

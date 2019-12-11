@@ -10,7 +10,6 @@ namespace drone_base
 
 //==========================
 // tello_driver uses a ROS service plus a ROS topic to simulate an action.
-// This may be replaced when support for actions is completed in ROS2 Dashing.
 //
 // Overall flow:
 // 1. drone_base sends a TelloAction::Request on the tello_action service
