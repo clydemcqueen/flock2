@@ -9,26 +9,26 @@ from launch.actions import ExecuteProcess
 
 
 def generate_launch_description():
-    urdf1 = os.path.join(get_package_share_directory('tello_description'), 'urdf', 'drone_1.urdf')
-    urdf2 = os.path.join(get_package_share_directory('tello_description'), 'urdf', 'drone_2.urdf')
+    urdf1 = os.path.join(get_package_share_directory('tello_description'), 'urdf', 'tello_1.urdf')
+    urdf2 = os.path.join(get_package_share_directory('tello_description'), 'urdf', 'tello_2.urdf')
 
     dr1_ns = 'drone1'
     dr2_ns = 'drone2'
 
     dr1_params = [{
         'drone_ip': '192.168.86.206',
-        'command_port': '11001',
-        'drone_port': '12001',
-        'data_port': '13001',
-        'video_port': '14001'
+        'command_port': 11001,
+        'drone_port': 12001,
+        'data_port': 13001,
+        'video_port': 14001
     }]
 
     dr2_params = [{
         'drone_ip': '192.168.86.212',
-        'command_port': '11002',
-        'drone_port': '12002',
-        'data_port': '13002',
-        'video_port': '14002'
+        'command_port': 11002,
+        'drone_port': 12002,
+        'data_port': 13002,
+        'video_port': 14002
     }]
 
     base_params = [{
@@ -75,11 +75,11 @@ def generate_launch_description():
              node_name='base2', node_namespace=dr2_ns),
 
         # Mapper
-        Node(package='fiducial_vlam', node_executable='vmap_node', output='screen'),
+        Node(package='fiducial_vlam', node_executable='vmap_main', output='screen'),
 
         # N visual localizers
-        Node(package='fiducial_vlam', node_executable='vloc_node', output='screen',
+        Node(package='fiducial_vlam', node_executable='vloc_main', output='screen',
              node_name='vloc1', node_namespace=dr1_ns),
-        Node(package='fiducial_vlam', node_executable='vloc_node', output='screen',
+        Node(package='fiducial_vlam', node_executable='vloc_main', output='screen',
              node_name='vloc2', node_namespace=dr2_ns),
     ])

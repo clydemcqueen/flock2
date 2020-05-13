@@ -45,8 +45,8 @@ def generate_launch_description():
         ], output='screen'),
 
         # Load and publish a known map
-        Node(package='fiducial_vlam', node_executable='vmap_node', output='screen',
-             node_name='vmap_node', parameters=[{
+        Node(package='fiducial_vlam', node_executable='vmap_main', output='screen',
+             node_name='vmap_main', parameters=[{
                 'use_sim_time': True,                           # Use /clock if available
                 'publish_tfs': 1,                               # Publish marker /tf
                 'marker_length': 0.1778,                        # Marker length
@@ -96,8 +96,8 @@ def generate_launch_description():
 
             # Localize this drone against the map
             # Future: need odometry for base_link, not camera_link
-            Node(package='fiducial_vlam', node_executable='vloc_node', output='screen',
-                 node_name='vloc_node', node_namespace=namespace, parameters=[{
+            Node(package='fiducial_vlam', node_executable='vloc_main', output='screen',
+                 node_name='vloc_main', node_namespace=namespace, parameters=[{
                     'use_sim_time': True,                           # Use /clock if available
                     'publish_tfs': 1,                               # Publish drone and camera /tf
                     'stamp_msgs_with_current_time': 0,              # Use incoming message time, not now()
