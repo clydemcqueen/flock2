@@ -61,8 +61,8 @@ namespace planner_node
     CXT_MACRO_INIT_PARAMETERS(PLANNER_NODE_ALL_PARAMS, validate_parameters)
 
 #undef CXT_MACRO_MEMBER
-#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_PARAMETER_CHANGED(cxt_, n, t)
-    CXT_MACRO_REGISTER_PARAMETERS_CHANGED((*this), PLANNER_NODE_ALL_PARAMS, validate_parameters)
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_PARAMETER_CHANGED(n, t)
+    CXT_MACRO_REGISTER_PARAMETERS_CHANGED((*this), cxt_, PLANNER_NODE_ALL_PARAMS, validate_parameters)
 
     // Get drone namespaces
     if (cxt_.drones_.size() > 1) {

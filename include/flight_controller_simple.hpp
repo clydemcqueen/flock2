@@ -72,7 +72,7 @@ namespace drone_base
 
 #undef CXT_MACRO_MEMBER
 #define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_DEFINE_MEMBER(n, t, d)
-    SIMPLE_CONTROLLER_ALL_PARAMS
+    CXT_MACRO_DEFINE_MEMBERS(SIMPLE_CONTROLLER_ALL_PARAMS)
     SIMPLE_CONTROLLER_ALL_OTHERS
 
     rclcpp::Time last_odom_time_;           // time of last odometry message

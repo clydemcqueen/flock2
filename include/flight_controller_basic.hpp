@@ -25,7 +25,7 @@ namespace drone_base
 
 #undef CXT_MACRO_MEMBER
 #define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_DEFINE_MEMBER(n, t, d)
-    BASIC_CONTROLLER_ALL_PARAMS
+    CXT_MACRO_DEFINE_MEMBERS(BASIC_CONTROLLER_ALL_PARAMS)
     BASIC_CONTROLLER_ALL_OTHERS
 
     DronePose last_pose_;                   // Last pose from odom

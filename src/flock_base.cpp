@@ -10,8 +10,8 @@ namespace flock_base
     CXT_MACRO_INIT_PARAMETERS(FLOCK_BASE_ALL_PARAMS, validate_parameters)
 
 #undef CXT_MACRO_MEMBER
-#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_PARAMETER_CHANGED((*this), n, t)
-    CXT_MACRO_REGISTER_PARAMETERS_CHANGED((*this), FLOCK_BASE_ALL_PARAMS, validate_parameters)
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_PARAMETER_CHANGED(n, t)
+    CXT_MACRO_REGISTER_PARAMETERS_CHANGED((*this), (*this), FLOCK_BASE_ALL_PARAMS, validate_parameters)
 
     if (drones_.size() > 1) {
       RCLCPP_INFO(get_logger(), "%d drones, joystick controls %s, right bumper to change",

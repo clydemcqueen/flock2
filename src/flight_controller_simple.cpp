@@ -12,8 +12,8 @@ namespace drone_base
     CXT_MACRO_INIT_PARAMETERS(SIMPLE_CONTROLLER_ALL_PARAMS, validate_parameters)
 
 #undef CXT_MACRO_MEMBER
-#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_PARAMETER_CHANGED((*this), n, t)
-    CXT_MACRO_REGISTER_PARAMETERS_CHANGED(node, SIMPLE_CONTROLLER_ALL_PARAMS, validate_parameters)
+#define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_PARAMETER_CHANGED(n, t)
+    CXT_MACRO_REGISTER_PARAMETERS_CHANGED(node, (*this), SIMPLE_CONTROLLER_ALL_PARAMS, validate_parameters)
 
     _reset();
   }
