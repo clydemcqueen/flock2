@@ -75,7 +75,7 @@ namespace planner_node
   {
 #undef CXT_MACRO_MEMBER
 #define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_DEFINE_MEMBER(n, t, d)
-    PLANNER_NODE_ALL_PARAMS
+    CXT_MACRO_DEFINE_MEMBERS(PLANNER_NODE_ALL_PARAMS)
   };
 
 //=============================================================================

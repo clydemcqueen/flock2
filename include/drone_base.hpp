@@ -76,7 +76,7 @@ namespace drone_base
 
   struct DroneBaseContext
   {
-    DRONE_BASE_ALL_PARAMS
+    CXT_MACRO_DEFINE_MEMBERS(DRONE_BASE_ALL_PARAMS)
     DRONE_BASE_ALL_OTHERS
   };
 

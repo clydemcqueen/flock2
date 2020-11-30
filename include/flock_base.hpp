@@ -21,7 +21,7 @@ namespace flock_base
   {
 #undef CXT_MACRO_MEMBER
 #define CXT_MACRO_MEMBER(n, t, d) CXT_MACRO_DEFINE_MEMBER(n, t, d)
-    FLOCK_BASE_ALL_PARAMS
+    CXT_MACRO_DEFINE_MEMBERS(FLOCK_BASE_ALL_PARAMS)
 
     // Global state
     bool mission_;
