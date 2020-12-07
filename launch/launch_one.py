@@ -33,11 +33,11 @@ def generate_launch_description():
              node_name='drone_base', node_namespace='solo'),
 
         # Mapper
-        Node(package='fiducial_vlam', node_executable='vmap_node', output='screen'),
+        Node(package='fiducial_vlam', node_executable='vmap_main', output='screen'),
 
         # Visual localizer
-        Node(package='fiducial_vlam', node_executable='vloc_node', output='screen',
-             node_name='vloc_node', node_namespace='solo'),
+        Node(package='fiducial_vlam', node_executable='vloc_main', output='screen',
+             node_name='vloc_main', node_namespace='solo'),
 
         # WIP: planner
         Node(package='flock2', node_executable='planner_node', output='screen'),
