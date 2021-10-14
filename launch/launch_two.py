@@ -50,36 +50,36 @@ def generate_launch_description():
         ExecuteProcess(cmd=['rviz2', '-d', 'install/flock2/share/flock2/launch/two.rviz'], output='screen'),
 
         # Publish N sets of static transforms
-        Node(package='robot_state_publisher', node_executable='robot_state_publisher', output='screen',
+        Node(package='robot_state_publisher', executable='robot_state_publisher', output='screen',
              arguments=[urdf1]),
-        Node(package='robot_state_publisher', node_executable='robot_state_publisher', output='screen',
+        Node(package='robot_state_publisher', executable='robot_state_publisher', output='screen',
              arguments=[urdf2]),
 
         # N drivers
-        Node(package='tello_driver', node_executable='tello_driver_main', output='screen',
-             node_name='driver1', node_namespace=dr1_ns, parameters=dr1_params),
-        Node(package='tello_driver', node_executable='tello_driver_main', output='screen',
-             node_name='driver2', node_namespace=dr2_ns, parameters=dr2_params),
+        Node(package='tello_driver', executable='tello_driver_main', output='screen',
+             name='driver1', namespace=dr1_ns, parameters=dr1_params),
+        Node(package='tello_driver', executable='tello_driver_main', output='screen',
+             name='driver2', namespace=dr2_ns, parameters=dr2_params),
 
         # Joystick
-        Node(package='joy', node_executable='joy_node', output='screen'),
+        Node(package='joy', executable='joy_node', output='screen'),
 
         # Flock controller
-        Node(package='flock2', node_executable='flock_base', output='screen',
-             node_name='flock_base', parameters=base_params),
+        Node(package='flock2', executable='flock_base', output='screen',
+             name='flock_base', parameters=base_params),
 
         # N drone controllers
-        Node(package='flock2', node_executable='drone_base', output='screen',
-             node_name='base1', node_namespace=dr1_ns),
-        Node(package='flock2', node_executable='drone_base', output='screen',
-             node_name='base2', node_namespace=dr2_ns),
+        Node(package='flock2', executable='drone_base', output='screen',
+             name='base1', namespace=dr1_ns),
+        Node(package='flock2', executable='drone_base', output='screen',
+             name='base2', namespace=dr2_ns),
 
         # Mapper
-        Node(package='fiducial_vlam', node_executable='vmap_main', output='screen'),
+        Node(package='fiducial_vlam', executable='vmap_main', output='screen'),
 
         # N visual localizers
-        Node(package='fiducial_vlam', node_executable='vloc_main', output='screen',
-             node_name='vloc1', node_namespace=dr1_ns),
-        Node(package='fiducial_vlam', node_executable='vloc_main', output='screen',
-             node_name='vloc2', node_namespace=dr2_ns),
+        Node(package='fiducial_vlam', executable='vloc_main', output='screen',
+             name='vloc1', namespace=dr1_ns),
+        Node(package='fiducial_vlam', executable='vloc_main', output='screen',
+             name='vloc2', namespace=dr2_ns),
     ])

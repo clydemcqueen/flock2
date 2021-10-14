@@ -45,8 +45,8 @@ def generate_launch_description():
         ], output='screen'),
 
         # Load and publish a known map
-        Node(package='fiducial_vlam', node_executable='vmap_main', output='screen',
-             node_name='vmap_main', parameters=[{
+        Node(package='fiducial_vlam', executable='vmap_main', output='screen',
+             name='vmap_main', parameters=[{
                 'use_sim_time': True,                           # Use /clock if available
                 'publish_tfs': 1,                               # Publish marker /tf
                 'marker_length': 0.1778,                        # Marker length
@@ -55,21 +55,21 @@ def generate_launch_description():
             }]),
 
         # Joystick driver, generates /namespace/joy messages
-        Node(package='joy', node_executable='joy_node', output='screen',
-             node_name='joy_node', parameters=[{
+        Node(package='joy', executable='joy_node', output='screen',
+             name='joy_node', parameters=[{
                 'use_sim_time': True,                           # Use /clock if available
             }]),
 
         # Flock controller (basically a joystick multiplexer, also starts/stops missions)
-        Node(package='flock2', node_executable='flock_base', output='screen',
-             node_name='flock_base', parameters=[{
+        Node(package='flock2', executable='flock_base', output='screen',
+             name='flock_base', parameters=[{
                 'use_sim_time': True,                           # Use /clock if available
                 'drones': drones
             }]),
 
         # WIP: planner
-        Node(package='flock2', node_executable='planner_node', output='screen',
-             node_name='planner_node', parameters=[{
+        Node(package='flock2', executable='planner_node', output='screen',
+             name='planner_node', parameters=[{
                 'use_sim_time': True,                           # Use /clock if available
                 'drones': drones,
                 'arena_x': -5.0,
@@ -85,19 +85,19 @@ def generate_launch_description():
 
         entities.extend([
             # Add a drone to the simulation
-            Node(package='tello_gazebo', node_executable='inject_entity.py', output='screen',
+            Node(package='tello_gazebo', executable='inject_entity.py', output='screen',
                  arguments=[urdf_path]+starting_locations[idx]),
 
             # Publish base_link to camera_link tf
-            # Node(package='robot_state_publisher', node_executable='robot_state_publisher', output='screen',
-            #      node_name=namespace+'_tf_pub', arguments=[urdf_path], parameters=[{
+            # Node(package='robot_state_publisher', executable='robot_state_publisher', output='screen',
+            #      name=namespace+'_tf_pub', arguments=[urdf_path], parameters=[{
             #         'use_sim_time': True,                       # Use /clock if available
             #     }]),
 
             # Localize this drone against the map
             # Future: need odometry for base_link, not camera_link
-            Node(package='fiducial_vlam', node_executable='vloc_main', output='screen',
-                 node_name='vloc_main', node_namespace=namespace, parameters=[{
+            Node(package='fiducial_vlam', executable='vloc_main', output='screen',
+                 name='vloc_main', namespace=namespace, parameters=[{
                     'use_sim_time': True,                           # Use /clock if available
                     'publish_tfs': 1,                               # Publish drone and camera /tf
                     'stamp_msgs_with_current_time': 0,              # Use incoming message time, not now()
@@ -109,8 +109,8 @@ def generate_launch_description():
                 }]),
 
             # Drone controller
-            Node(package='flock2', node_executable='drone_base', output='screen',
-                 node_name='drone_base', node_namespace=namespace, parameters=[{
+            Node(package='flock2', executable='drone_base', output='screen',
+                 name='drone_base', namespace=namespace, parameters=[{
                     'use_sim_time': True,                       # Use /clock if available
                 }]),
         ])
